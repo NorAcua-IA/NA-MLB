@@ -2246,6 +2246,11 @@ function genInfPeriodo({
   concs,
   todosProyectos
 }) {
+  const fmtN = n => n == null ? "- €" : (n < 0 ? "-" : "") + Math.abs(n).toLocaleString("es-ES", {
+    minimumFractionDigits: 2,
+    useGrouping: true
+  }) + " €";
+  const logoSVG = `<svg width="90" viewBox="0 0 200 80" xmlns="http://www.w3.org/2000/svg"><rect x="4" y="4" width="52" height="52" rx="8" fill="#003057"/><polyline points="14,48 14,12 36,44 36,12" fill="none" stroke="white" stroke-width="6" stroke-linejoin="round" stroke-linecap="round"/><polyline points="36,12 46,28" fill="none" stroke="#00c8c8" stroke-width="6" stroke-linecap="round"/><line x1="46" y1="12" x2="46" y2="48" stroke="white" stroke-width="6" stroke-linecap="round"/><text x="64" y="38" font-family="Segoe UI,Arial,sans-serif" font-size="22" font-weight="700" fill="#003057" letter-spacing="-0.5">noracua</text></svg>`;
   const grupos = {};
   regs.forEach(r => {
     if (!grupos[r.proyectoId]) grupos[r.proyectoId] = [];
@@ -2257,13 +2262,14 @@ function genInfPeriodo({
       nombre: "Sin proyecto",
       zona: "—",
       po: "—",
-      estacion: "—",
-      responsableBP: "—"
+      estacion: "—"
     };
     const ls = rs.map(r => {
       const c = concs.find(x => x.id === r.conceptoId);
       const pu = r.precioManual != null ? r.precioManual : c?.p?.[p.zona] ?? null;
       const cant = r.cantidad || 1;
+      const dto = 0;
+      const totL = pu != null ? pu * cant * (1 - dto / 100) : null;
       return {
         fecha: fmtD(r.fecha),
         nom: c?.nombre || "—",
@@ -2271,10 +2277,11 @@ function genInfPeriodo({
         obs: r.observaciones || "",
         pu,
         cant,
-        tot: pu != null ? pu * cant : null
+        dto,
+        totL
       };
     });
-    const sub = ls.reduce((s, l) => s + (l.tot || 0), 0);
+    const sub = ls.reduce((s, l) => s + (l.totL || 0), 0);
     totalG += sub;
     return {
       p,
@@ -2282,30 +2289,72 @@ function genInfPeriodo({
       sub
     };
   });
-  const titulo = proy ? `Informe de trabajos — ${proy.nombre}` : "Informe de actividades por período";
-  const subtitulo = `${fmtD(desde)} → ${fmtD(hasta)}`;
-  return `<!DOCTYPE html><html><head><meta charset="utf-8"><style>${pdfCSSInf}</style></head><body><script>window.onload=function(){window.print();}<\/script>
-<div class="hdr"><div><div class="en">${EMPRESA.nombre}</div><div class="es">${EMPRESA.dir1} · ${EMPRESA.dir2}<br>${EMPRESA.email} · ${EMPRESA.web} · CIF: ${EMPRESA.cif}</div></div><div class="hr"><strong>${titulo}</strong><br>${subtitulo}</div></div>
-<div class="rb"><div class="t">${titulo}</div><div class="r">${subtitulo}</div></div>
+  const periodo = `${fmtD(desde)} - ${fmtD(hasta)}`;
+  const titulo = proy ? `Informe de trabajos — ${proy.nombre}` : "Informe de actividades por periodo";
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
+@page{size:A4;margin:14mm}*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',Calibri,Arial,sans-serif;font-size:9pt;color:#222;background:#fff}
+.hdr{display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:10px;border-bottom:1.5pt solid #ddd;margin-bottom:12px}
+.hdr-left{}.hdr-right{text-align:right}
+.hdr-right .org{font-size:9.5pt;font-weight:700;color:#111}
+.hdr-right .addr{font-size:7.5pt;color:#555;line-height:1.7;margin-top:2px}
+.periodo-bar{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.periodo-bar .titulo{font-size:11pt;font-weight:700;color:#111}
+.periodo-bar .per{font-size:8.5pt;color:#555}
+.proy-hdr{background:#003057;color:#fff;padding:5px 10px;display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:8px;font-size:8pt;margin-bottom:0}
+.proy-hdr .ph-main{font-weight:700;font-size:9pt}
+.proy-hdr .ph-sub{font-size:7.5pt;opacity:.8}
+table.act{width:100%;border-collapse:collapse;font-size:8.5pt;margin-bottom:4px}
+table.act thead tr{background:#003057;color:#fff}
+table.act th{padding:5px 7px;text-align:left;font-size:7.5pt;font-weight:600;text-transform:uppercase;letter-spacing:.3px}
+table.act th:nth-child(5),table.act th:nth-child(6),table.act th:nth-child(7),table.act th:nth-child(8){text-align:right}
+table.act td{padding:4px 7px;border-bottom:1px solid #ddd;vertical-align:middle}
+table.act tr:nth-child(even) td{background:#f9f9f9}
+.subtotal{display:flex;justify-content:flex-end;padding:4px 10px;background:#f0f3f6;margin-bottom:12px;font-size:8.5pt;font-weight:700;color:#003057}
+.total-blk{background:#003057;color:#fff;text-align:right;padding:12px 16px;margin-top:8px}
+.total-blk .tl{font-size:8pt;opacity:.65;text-transform:uppercase;letter-spacing:1px}
+.total-blk .tv{font-size:20pt;font-weight:800;color:#00c8c8;margin-top:3px}
+.sigs{display:flex;justify-content:space-between;margin-top:24px;gap:24px}
+.sig{flex:1;text-align:center;font-size:8pt}
+.sig-line{border-top:1px solid #999;margin-top:28px;padding-top:4px}
+.ftr{margin-top:16px;padding-top:6px;border-top:1px solid #eee;font-size:7pt;color:#aaa;display:flex;justify-content:space-between}
+</style></head><body><script>window.onload=function(){window.print();}<\/script>
+<div class="hdr">
+  <div>${logoSVG}</div>
+  <div class="hdr-right">
+    <div class="org">${EMPRESA.nombre}</div>
+    <div class="addr">${EMPRESA.dir1} - ${EMPRESA.dir2}<br>${EMPRESA.email} - ${EMPRESA.web} - ${EMPRESA.cif}</div>
+  </div>
+</div>
+<div class="periodo-bar">
+  <div class="titulo">${titulo}</div>
+  <div class="per">Periodo: ${periodo}</div>
+</div>
 ${bloques.map(({
     p,
     ls,
     sub
-  }) => `<div class="ph"><h2>${p.nombre}</h2><div class="pm"><span>Zona: ${p.zona}</span><span>PO: ${p.po || "—"}</span><span>ES: ${p.estacion || "—"}</span><span>Resp: ${p.responsableBP || "—"}</span></div></div>
-<table><thead><tr><th style="width:9%">Fecha</th><th>Concepto</th><th style="width:12%">Técnico</th><th style="width:13%">Obs.</th><th style="width:10%;text-align:right">P.Unit.</th><th style="width:7%;text-align:center">Cant.</th><th style="width:11%;text-align:right">Total</th></tr></thead>
-<tbody>${ls.map(l => `<tr><td>${l.fecha}</td><td>${l.nom}</td><td>${l.trab}</td><td>${l.obs}</td><td style="text-align:right">${fmtE(l.pu)}</td><td style="text-align:center">${l.cant}</td><td style="text-align:right;font-weight:700">${fmtE(l.tot)}</td></tr>`).join("")}</tbody></table>
-<div class="sr"><span>Subtotal: ${fmtE(sub)}</span></div>`).join("")}
-<div class="gr"><div class="gl">Total facturable global</div><div class="gv">${fmtE(totalG)}</div></div>
-<div class="sig"><div class="sb2"><div class="sl">${EMPRESA.nombre}</div></div><div class="sb2"><div class="sl">BP Energía España — Vº Bº</div></div></div>
-<div class="ftr"><span class="fl">${EMPRESA.nombre}</span><span>CIF: ${EMPRESA.cif}</span><span>Generado: ${new Date().toLocaleDateString("es-ES", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "2-digit"
-  })} · ${regs.length} registros</span></div>
+  }) => `
+<div class="proy-hdr">
+  <div><div class="ph-main">${p.nombre}</div></div>
+  <div><div class="ph-sub">ES: ${p.estacion || "—"}</div></div>
+  <div><div class="ph-sub">PM: ${p.responsableBP || "—"}</div></div>
+  <div><div class="ph-sub">PO: ${p.po || "—"}</div></div>
+</div>
+<div style="background:#003057;height:4px;margin-bottom:0"></div>
+<table class="act">
+  <thead><tr><th style="width:8%">Fecha</th><th style="width:28%">Concepto</th><th style="width:8%;text-align:center">Técnico</th><th style="width:18%">Obs.</th><th style="width:12%;text-align:right">P. Unitario</th><th style="width:6%;text-align:right">Cant.</th><th style="width:7%;text-align:right">Dto.(%)</th><th style="width:11%;text-align:right">Total</th></tr></thead>
+  <tbody>${ls.map(l => `<tr><td>${l.fecha}</td><td>${l.nom}</td><td style="text-align:center">${l.trab}</td><td style="font-size:7.5pt;color:#555">${l.obs}</td><td style="text-align:right">${fmtN(l.pu)}</td><td style="text-align:right">${l.cant}</td><td style="text-align:right">${l.dto}%</td><td style="text-align:right;font-weight:700">${fmtN(l.totL)}</td></tr>`).join("")}</tbody>
+</table>
+<div class="subtotal">SUBTOTAL: ${fmtN(sub)}</div>`).join("")}
+<div class="total-blk"><div class="tl">Total facturable global</div><div class="tv">${fmtN(totalG)}</div></div>
+<div class="sigs">
+  <div class="sig">NorAcua Ingeniería y Servicios<div class="sig-line">&nbsp;</div></div>
+  <div class="sig">BP Energía España, S.A.U. - Vº Bº<div class="sig-line">&nbsp;</div></div>
+</div>
+<div class="ftr"><span>${EMPRESA.nombre}</span><span>Informe generado: ${new Date().toLocaleDateString("es-ES")} · ${regs.length} registros</span></div>
 </body></html>`;
 }
-
-// FIX #14: PO en factura PDF
 function genPDFFactura({
   doc,
   cliente,
@@ -2317,6 +2366,10 @@ function genPDFFactura({
     total
   } = calcDocTotal(doc);
   const neg = doc.tipo === "Abono" ? -1 : 1;
+  const fmtN = n => n == null ? "- €" : (n < 0 ? "-" : "") + Math.abs(n).toLocaleString("es-ES", {
+    minimumFractionDigits: 2,
+    useGrouping: true
+  }) + " €";
   const ivaMap = {};
   let totalDto = 0;
   (doc.lineas || []).forEach(l => {
@@ -2326,72 +2379,71 @@ function genPDFFactura({
     ivaMap[k] += calcLinea(l, neg).sub;
     totalDto += (Number(l.precio) || 0) * (Number(l.uds) || 1) * ((Number(l.descuento) || 0) / 100) * neg;
   });
-  const ivaRows = Object.entries(ivaMap).filter(([, b]) => b !== 0).map(([p, b]) => `<tr><td>IVA ${p}%:</td><td>€</td><td style="text-align:right">${(b * Number(p) / 100).toLocaleString("es-ES", {
-    minimumFractionDigits: 2,
-    useGrouping: true
-  })}</td></tr>`).join("");
-  const tipoColor = doc.tipo === "Abono" ? "#d03030" : doc.tipo === "Suplido" ? "#d48a10" : "#003057";
-  const fmtN = n => n.toLocaleString("es-ES", {
-    minimumFractionDigits: 2,
-    useGrouping: true
-  });
-  const poEfectiva = doc.poRef || poRef || "";
+  const ivaRows = Object.entries(ivaMap).filter(([, b]) => b !== 0).map(([p, b]) => `<tr><td colspan="3" style="text-align:right;padding:3px 8px">IVA ${p}%:</td><td style="text-align:right;padding:3px 8px">${fmtN(b * Number(p) / 100)}</td></tr>`).join("");
+  const logoSVG = `<svg width="90" viewBox="0 0 200 80" xmlns="http://www.w3.org/2000/svg"><rect x="4" y="4" width="52" height="52" rx="8" fill="#003057"/><polyline points="14,48 14,12 36,44 36,12" fill="none" stroke="white" stroke-width="6" stroke-linejoin="round" stroke-linecap="round"/><polyline points="36,12 46,28" fill="none" stroke="#00c8c8" stroke-width="6" stroke-linecap="round"/><line x1="46" y1="12" x2="46" y2="48" stroke="white" stroke-width="6" stroke-linecap="round"/><text x="64" y="38" font-family="Segoe UI,Arial,sans-serif" font-size="22" font-weight="700" fill="#003057" letter-spacing="-0.5">noracua</text></svg>`;
+  const tipoLabel = doc.tipo.toUpperCase();
+  const colorTipo = doc.tipo === "Abono" ? "#d03030" : doc.tipo === "Suplido" ? "#d48a10" : "#003057";
   return `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
-@page{size:A4;margin:14mm}*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Segoe UI',Tahoma,Arial,sans-serif;color:#1a1a1a;font-size:9.5pt;background:#fff}
-.hdr{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;padding-bottom:14px;border-bottom:2px solid #e0e0e0}
-.doc-type{font-size:22pt;font-weight:800;color:${tipoColor};letter-spacing:-0.5px}
-.emisor{font-size:8pt;color:#444;line-height:1.7;margin-top:10px}.emisor strong{font-size:9pt;color:#111;display:block}
-.two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px}
-.box{border:1px solid #ddd;border-radius:4px;overflow:hidden}
-.box-head{background:#003057;color:#fff;padding:5px 10px;font-size:7.5pt;font-weight:700;text-transform:uppercase;letter-spacing:.6px}
-.box-body{padding:9px 10px;font-size:8.5pt;line-height:1.9}.box-body strong{display:block;font-size:9.5pt;margin-bottom:2px}
-.po-bar{background:#fff8e6;border:1px solid #f0c96e;border-radius:4px;padding:6px 12px;margin-bottom:14px;font-size:9pt}
-.po-bar strong{color:#7a4f00}
-table.ln{width:100%;border-collapse:collapse;margin-bottom:4px;font-size:8.5pt}
-table.ln thead tr{background:#003057;color:#fff}
-table.ln th{padding:6px 8px;text-align:left;font-size:7.5pt;text-transform:uppercase;letter-spacing:.4px;font-weight:600}
-table.ln td{padding:6px 8px;border-bottom:1px solid #eee}
-table.ln tr:nth-child(even) td{background:#f9f9f9}
-.tot{display:flex;justify-content:flex-end;margin-top:10px}
-.tot-box{min-width:280px;border:1px solid #ddd;border-radius:4px;overflow:hidden}
-.tot-box table{width:100%;font-size:9pt;border-collapse:collapse}
-.tot-box td{padding:5px 12px}.tot-box tr.dto td{color:#d48a10}
-.tot-box tr.grand{background:#003057;color:#fff}
-.tot-box tr.grand td{padding:8px 12px;font-size:11pt;font-weight:800}
-.pago{margin-top:18px;border:1px solid #ddd;border-radius:4px;overflow:hidden}
-.pago-h{background:#f5f5f5;padding:5px 10px;font-size:7.5pt;font-weight:700;text-transform:uppercase;color:#555;border-bottom:1px solid #ddd}
-.pago-b{display:grid;grid-template-columns:2fr 1fr 1fr 1fr;font-size:8.5pt}
-.pc{padding:7px 10px;border-right:1px solid #eee}.pc:last-child{border-right:none}
-.pc label{font-size:7pt;text-transform:uppercase;color:#888;display:block}.pc span{font-weight:600;color:#111}
+@page{size:A4;margin:14mm}*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',Calibri,Arial,sans-serif;font-size:9pt;color:#222;background:#fff}
+.hdr{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;border-bottom:1px solid #ddd;padding-bottom:12px}
+.emisor{font-size:8pt;color:#555;line-height:1.7;margin-top:8px}.emisor strong{font-size:9.5pt;color:#111;display:block}
+.tipo-num{text-align:right}.tipo-num .tipo{font-size:24pt;font-weight:800;color:${colorTipo};letter-spacing:-1px}
+.tipo-num .num{font-size:12pt;font-weight:700;color:#333;margin-top:4px}
+.tipo-num .fecha{font-size:8.5pt;color:#666;margin-top:2px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
+.box{border:1px solid #ddd;font-size:8.5pt}.box-h{background:#f5f5f5;padding:4px 9px;font-weight:700;font-size:7.5pt;text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid #ddd;color:#003057}
+.box-b{padding:8px 9px;line-height:1.8}
+table.lineas{width:100%;border-collapse:collapse;font-size:8.5pt;margin-bottom:10px}
+table.lineas thead tr{background:#003057;color:#fff}
+table.lineas th{padding:5px 8px;text-align:left;font-size:7.5pt;font-weight:600;text-transform:uppercase}
+table.lineas th:nth-child(2),table.lineas th:nth-child(3),table.lineas th:nth-child(4),table.lineas th:nth-child(5){text-align:right}
+table.lineas td{padding:4px 8px;border-bottom:1px solid #eee}
+table.lineas tr:nth-child(even) td{background:#f9f9f9}
+table.lineas .cab td{background:#e8ecf0;font-weight:700;color:#003057;font-size:8pt}
+.tot-wrap{display:flex;justify-content:flex-end;margin-bottom:14px}
+.tot-box{width:280px;border:1px solid #ddd;font-size:9pt}
+.tot-box tr td{padding:4px 10px}
+.tot-box tr:last-child{background:#003057;color:#fff;font-size:10.5pt;font-weight:800}
+.tot-box tr:last-child td{padding:7px 10px}
+.pago{border:1px solid #ddd;font-size:8.5pt}
+.pago-h{background:#f5f5f5;padding:4px 9px;font-weight:700;font-size:7.5pt;text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid #ddd;color:#003057}
+.pago-g{display:grid;grid-template-columns:2fr 1fr 1fr 1fr}
+.pago-c{padding:6px 9px;border-right:1px solid #eee}.pago-c:last-child{border-right:none}
+.pago-c label{display:block;font-size:7pt;text-transform:uppercase;color:#888;margin-bottom:2px}.pago-c span{font-weight:600;color:#111}
+.po-bar{background:#fff8e1;border:1px solid #f0c96e;padding:5px 10px;margin-bottom:12px;font-size:8.5pt}
 </style></head><body><script>window.onload=function(){window.print();}<\/script>
-<div class="hdr"><div>${logoHTML}<div class="emisor"><strong>${EMPRESA.nombreCorto}</strong>${EMPRESA.cif}<br>${EMPRESA.dir1}<br>${EMPRESA.dir2}<br>${EMPRESA.email}</div></div>
-<div style="text-align:right"><div class="doc-type">${doc.tipo.toUpperCase()}</div><div style="font-size:13pt;font-weight:700;color:#333;margin-top:6px">${doc.numero}</div><div style="font-size:8.5pt;color:#666;margin-top:4px">Fecha: ${fmtD(doc.fecha)}</div>${doc.refAbono ? `<div style="font-size:8pt;color:#888">Ref. factura: ${doc.refAbono}</div>` : ""}</div></div>
-${poEfectiva ? `<div class="po-bar"><strong>PO / Número de pedido: </strong><span style="font-size:10pt;font-weight:800;color:#7a4f00">${poEfectiva}</span></div>` : ""}
-<div class="two-col">
-<div class="box"><div class="box-head">Datos del cliente</div><div class="box-body"><strong>${cliente?.nombre || "—"}</strong>${cliente?.nif ? `NIF: ${cliente.nif}<br>` : ""}${cliente?.direccion ? `${cliente.direccion}<br>` : ""}${cliente?.poblacion || ""}${cliente?.conceptoCliente ? `<br><span style="color:#888;font-size:8pt">Concepto: ${cliente.conceptoCliente}</span>` : ""}</div></div>
-<div class="box"><div class="box-head">Observaciones</div><div class="box-body">${doc.observaciones || "—"}</div></div>
+<div class="hdr">
+  <div>${logoSVG}<div class="emisor"><strong>${EMPRESA.nombreCorto}</strong>${EMPRESA.cif}<br>${EMPRESA.dir1}<br>${EMPRESA.dir2}<br>${EMPRESA.email}</div></div>
+  <div class="tipo-num"><div class="tipo">${tipoLabel}</div><div class="num">${doc.numero}</div><div class="fecha">Fecha: ${fmtD(doc.fecha)}</div>${doc.refAbono ? `<div style="font-size:8pt;color:#888">Ref: ${doc.refAbono}</div>` : ""}</div>
 </div>
-<table class="ln"><thead><tr><th style="width:48%">Concepto</th><th style="width:8%;text-align:center">Uds.</th><th style="width:14%;text-align:right">Precio unit.</th><th style="width:8%;text-align:right">Dto.%</th><th style="width:7%;text-align:center">IVA</th><th style="width:13%;text-align:right">Total</th></tr></thead>
+${doc.poRef || poRef ? `<div class="po-bar"><strong>PO / Nº de pedido: ${doc.poRef || poRef}</strong></div>` : ""}
+<div class="grid2">
+  <div class="box"><div class="box-h">Datos cliente</div><div class="box-b"><strong>${cliente?.nombre || "—"}</strong>${cliente?.nif ? `<br>${cliente.nif}` : ""}<br>${cliente?.direccion || ""}<br>${cliente?.poblacion || ""}</div></div>
+  <div class="box"><div class="box-h">Observaciones</div><div class="box-b">${doc.observaciones || "—"}</div></div>
+</div>
+<table class="lineas"><thead><tr><th style="width:46%">Concepto</th><th style="width:7%;text-align:center">Uds.</th><th style="width:14%;text-align:right">Precio unit.</th><th style="width:8%;text-align:right">Dto.%</th><th style="width:7%;text-align:center">IVA</th><th style="width:13%;text-align:right">Total</th></tr></thead>
 <tbody>${(doc.lineas || []).map(l => {
-    if (l.esCabecera) return `<tr><td colspan="6" style="background:#e8ecf0;padding:5px 8px;font-weight:700;font-size:8pt;color:#003057">${l.concepto}</td></tr>`;
+    if (l.esCabecera) return `<tr class="cab"><td colspan="6" style="padding:4px 8px">${l.concepto}</td></tr>`;
     const {
       sub
     } = calcLinea(l, neg);
-    return `<tr><td>${l.concepto}</td><td style="text-align:center">${l.uds || 1}</td><td style="text-align:right">€ ${fmtN(Number(l.precio) || 0)}</td><td style="text-align:right">${Number(l.descuento) || 0}%</td><td style="text-align:center">${l.iva}%</td><td style="text-align:right;font-weight:600">€ ${fmtN(sub)}</td></tr>`;
+    return `<tr><td>${l.concepto}</td><td style="text-align:center">${l.uds || 1}</td><td style="text-align:right">${fmtE(Number(l.precio) || 0)}</td><td style="text-align:right">${Number(l.descuento) || 0}%</td><td style="text-align:center">${l.iva}%</td><td style="text-align:right;font-weight:600">${fmtN(sub)}</td></tr>`;
   }).join("")}</tbody></table>
-<div class="tot"><div class="tot-box"><table>
-<tr><td>Base bruta:</td><td>€</td><td style="text-align:right">${fmtN((doc.lineas || []).filter(l => !l.esCabecera).reduce((s, l) => s + (Number(l.precio) || 0) * (Number(l.uds) || 1) * neg, 0))}</td></tr>
-${totalDto !== 0 ? `<tr class="dto"><td>Descuentos:</td><td>€</td><td style="text-align:right">- ${fmtN(Math.abs(totalDto))}</td></tr>` : ""}
-<tr><td>Base imponible:</td><td>€</td><td style="text-align:right">${fmtN(base)}</td></tr>
+<div class="tot-wrap"><table class="tot-box">
+<tr><td>Base imponible:</td><td style="text-align:right">${fmtN(base)}</td></tr>
+${totalDto !== 0 ? `<tr><td>Descuento:</td><td style="text-align:right">- ${fmtN(Math.abs(totalDto))}</td></tr>` : ""}
 ${ivaRows}
-<tr class="grand"><td colspan="2">TOTAL ${doc.tipo.toUpperCase()}:</td><td style="text-align:right">€ ${fmtN(total)}</td></tr>
-</table></div></div>
-<div class="pago"><div class="pago-h">Datos de pago</div><div class="pago-b">
-<div class="pc"><label>Cuenta de pago</label><span>${doc.iban || cliente?.iban || "—"}</span></div>
-<div class="pc"><label>Vencimiento</label><span>${fmtD(doc.fechaVto)}</span></div>
-<div class="pc"><label>Importe</label><span>€ ${fmtN(total)}</span></div>
-<div class="pc"><label>Método de pago</label><span>${doc.metodoPago || cliente?.metodoPago || "—"}</span></div>
-</div></div></body></html>`;
+<tr><td colspan="2" style="text-align:center">TOTAL FACTURA:</td></tr>
+<tr><td colspan="2" style="text-align:right;color:#00c8c8">${fmtN(total)}</td></tr>
+</table></div>
+<div class="pago"><div class="pago-h">Datos de pago</div><div class="pago-g">
+<div class="pago-c"><label>Cuenta de pago</label><span>${doc.iban || cliente?.iban || "—"}</span></div>
+<div class="pago-c"><label>Vencimiento</label><span>${fmtD(doc.fechaVto)}</span></div>
+<div class="pago-c"><label>Importe</label><span>${fmtN(total)}</span></div>
+<div class="pago-c"><label>Método de pago</label><span>${doc.metodoPago || "—"}</span></div>
+</div></div>
+</body></html>`;
 }
 function genPDFOferta({
   oferta,
@@ -2401,16 +2453,17 @@ function genPDFOferta({
   const fmtN = n => (n || 0).toLocaleString("es-ES", {
     minimumFractionDigits: 2,
     useGrouping: true
-  });
+  }) + " €";
   const total = calcOfertaTotal(oferta.lineas || []);
+  const logoSVG = `<svg width="80" viewBox="0 0 200 80" xmlns="http://www.w3.org/2000/svg"><rect x="4" y="4" width="52" height="52" rx="8" fill="#003057"/><polyline points="14,48 14,12 36,44 36,12" fill="none" stroke="white" stroke-width="6" stroke-linejoin="round" stroke-linecap="round"/><polyline points="36,12 46,28" fill="none" stroke="#00c8c8" stroke-width="6" stroke-linecap="round"/><line x1="46" y1="12" x2="46" y2="48" stroke="white" stroke-width="6" stroke-linecap="round"/><text x="64" y="38" font-family="Segoe UI,Arial,sans-serif" font-size="22" font-weight="700" fill="#003057" letter-spacing="-0.5">noracua</text></svg>`;
   const grupos = {};
   (oferta.lineas || []).forEach(l => {
     const c = concs.find(x => x.id === l.conceptoId);
     const cap = c ? CAP_BASE.find(x => x.cap === c.capId) : null;
     const key = cap ? cap.cap : "0";
-    const keyNombre = cap ? `${cap.cap}. ${cap.nombre}` : "Sin capítulo";
+    const keyNom = cap ? `${cap.cap}. ${cap.nombre}` : "Sin capítulo";
     if (!grupos[key]) grupos[key] = {
-      nombre: keyNombre,
+      nom: keyNom,
       items: []
     };
     grupos[key].items.push({
@@ -2419,74 +2472,82 @@ function genPDFOferta({
     });
   });
   const tablaLineas = Object.values(grupos).map(({
-    nombre,
+    nom,
     items
   }) => `
-    <tr style="background:#e8ecf0"><td colspan="4" style="padding:5px 8px;font-weight:700;font-size:8pt;color:#003057">${nombre}</td></tr>
+    <tr style="background:#003057;color:#fff"><td colspan="4" style="padding:5px 8px;font-weight:700;font-size:8pt">${nom}</td></tr>
     ${items.map(({
     l,
     c
   }) => {
     const sub = calcOfertaLinea(l);
-    return `<tr><td style="padding:4px 8px;font-size:8pt">${c?.id || ""} — ${c?.nombre || l.conceptoId}</td><td style="text-align:center;padding:4px 8px;font-size:8pt">${l.cantidad || 1}</td><td style="text-align:right;padding:4px 8px;font-size:8pt">${fmtN(l.precioUnit)} €${Number(l.descuento) > 0 ? ` <small>(-${l.descuento}%)</small>` : ""}</td><td style="text-align:right;padding:4px 8px;font-size:8pt;font-weight:600">${fmtN(sub)} €</td></tr>`;
+    return `<tr><td style="padding:4px 8px;font-size:8.5pt">${c?.id ? `${c.id} ` : ""} ${c?.nombre || l.conceptoId}</td><td style="text-align:center;padding:4px 8px;font-size:8.5pt">${l.cantidad || 1}</td><td style="text-align:right;padding:4px 8px;font-size:8.5pt">${fmtN(l.precioUnit)}${Number(l.descuento) > 0 ? ` <small>(-${l.descuento}%)</small>` : ""}</td><td style="text-align:right;padding:4px 8px;font-size:8.5pt;font-weight:600">${fmtN(sub)}</td></tr>`;
   }).join("")}`).join("");
   return `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
-@page{size:A4;margin:14mm}*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Segoe UI',Tahoma,Arial,sans-serif;color:#1a1a1a;font-size:9pt;background:#fff}
-.hdr{display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:10px;border-bottom:1px solid #ccc;margin-bottom:14px}
-.meta-grid{display:grid;grid-template-columns:auto 1fr;gap:2px 16px;font-size:8.5pt;margin-bottom:14px}
-.meta-grid .lbl{color:#555;text-decoration:underline}.meta-grid .val{font-weight:700}
+@page{size:A4;margin:14mm}*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',Calibri,Arial,sans-serif;font-size:9pt;color:#222;background:#fff}
+.hdr{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px}
+.hdr-sub{font-style:italic;font-size:8.5pt;color:#555;margin-top:4px}
+.meta{background:#f5f5f5;border:1px solid #ddd;padding:10px 12px;margin-bottom:12px;font-size:8.5pt;line-height:1.9}
+.meta strong{color:#111}
 table.presup{width:100%;border-collapse:collapse;margin-bottom:10px;font-size:8.5pt}
-table.presup th{background:none;color:#111;border-bottom:1px solid #888;padding:4px 8px;text-align:left;font-size:8pt}
-table.presup th:last-child,table.presup th:nth-child(2),table.presup th:nth-child(3){text-align:right}
-table.presup td{padding:3px 8px;border-bottom:1px solid #eee}
-.total-row td{font-weight:800;border-top:2px solid #111;border-bottom:2px solid #111;padding:5px 8px;font-size:9.5pt}
-.nota{font-size:7.5pt;margin:10px 0;padding:6px 10px;border-left:2px solid #888}
-.accept-title{font-weight:700;font-size:9pt;margin:14px 0 6px}
-.accept-text{font-size:8pt;color:#333;margin-bottom:12px}
-.sig-row{display:flex;justify-content:space-between;margin-bottom:8px}
-.sig-line{flex:1;font-size:8.5pt}.sig-name{margin-top:6px;font-size:8pt;color:#333}
-.client-table{width:100%;border-collapse:collapse;font-size:8pt;margin:10px 0}
-.client-table td{padding:3px 6px;border:1px solid #ccc}
-.client-table .lbl{font-weight:700;background:#f5f5f5;width:35%}
-.resumen{border:1px solid #ccc;padding:8px 12px;font-size:8.5pt;margin-top:10px}
-.resumen .r-title{font-weight:700;margin-bottom:4px;font-size:9pt}
-.ftr{margin-top:20px;padding-top:6px;border-top:1px solid #e0e0e0;font-size:7pt;color:#aaa;display:flex;justify-content:space-between}
+table.presup th{background:#003057;color:#fff;padding:5px 8px;text-align:left;font-size:7.5pt;text-transform:uppercase;letter-spacing:.4px}
+table.presup th:nth-child(2),table.presup th:nth-child(3),table.presup th:nth-child(4){text-align:right}
+table.presup td{padding:4px 8px;border-bottom:1px solid #eee}
+table.presup tr:nth-child(even) td{background:#f9f9f9}
+.total-blk{background:#003057;color:#fff;text-align:right;padding:10px 14px;margin-bottom:12px}
+.total-blk .tl{font-size:8.5pt;opacity:.7;text-transform:uppercase;letter-spacing:1px}
+.total-blk .tv{font-size:18pt;font-weight:800;color:#00c8c8;margin-top:2px}
+.nota{font-size:7.5pt;color:#555;margin-bottom:12px;padding:5px 8px;border-left:2px solid #ccc}
+.accept{border:1px solid #ddd;margin-bottom:10px}
+.accept-h{background:#f5f5f5;padding:4px 9px;font-size:7.5pt;font-weight:700;text-transform:uppercase;border-bottom:1px solid #ddd;color:#003057}
+.accept-b{padding:8px 9px;font-size:8pt}
+.sigs{display:flex;gap:30px;padding:8px 9px}
+.sig{flex:1;text-align:center;font-size:8pt}
+.sig-line{border-top:1px solid #999;margin-top:30px;padding-top:4px}
+.client-tbl{width:100%;border-collapse:collapse;font-size:8pt;margin:6px 0}
+.client-tbl td{padding:3px 6px;border:1px solid #ddd}
+.client-tbl .lbl{background:#f5f5f5;font-weight:700;width:35%}
+.resumen{background:#003057;color:#fff;padding:10px 12px;margin-top:10px;font-size:8.5pt}
+.resumen .rt{font-weight:700;font-size:9pt;margin-bottom:4px}
+.resumen table{width:100%;font-size:8.5pt}
+.resumen td{padding:2px 0;color:rgba(255,255,255,.85)}
+.resumen td:first-child{width:120px;color:rgba(255,255,255,.6)}
 </style></head><body><script>window.onload=function(){window.print();}<\/script>
-<div class="hdr"><div>${logoHTML}<div style="font-style:italic;font-size:8.5pt;color:#333">NorAcua Ingeniería y Servicios</div></div></div>
-<div class="meta-grid">
-  <span class="lbl">Nº oferta:</span><span class="val">${oferta.numero}</span>
-  <span class="lbl">Asunto:</span><span class="val">${oferta.asunto || "—"}</span>
-  <span class="lbl">Versión:</span><span class="val">${oferta.version || 1}</span>
-  <span class="lbl">Referencia:</span><span class="val">${oferta.referencia || "—"}</span>
-  <span class="lbl">Fecha:</span><span class="val">${fmtD(oferta.fecha)}</span>
-  <span class="lbl">Emplazamiento:</span><span class="val">${oferta.emplazamiento || "—"}</span>
-</div>
-<table class="presup">
-  <thead><tr><th style="width:56%">PRESUPUESTO ${oferta.zona || ""}</th><th style="width:10%;text-align:center">Cantidad</th><th style="width:18%;text-align:right">Precio unitario</th><th style="width:16%;text-align:right">TOTAL</th></tr></thead>
-  <tbody>${tablaLineas}<tr class="total-row"><td colspan="3" style="text-align:right">TOTAL</td><td style="text-align:right">${fmtN(total)} €</td></tr></tbody>
-</table>
-<div class="nota"><strong>NOTA:</strong> No se incluye en la oferta la preparación de proyectos, certificados o cualquier documentación diferente de la especificada en la misma. Tampoco se incluye el pago de tasas.</div>
-<div class="accept-title">ACEPTACION DE LA OFERTA</div>
-<div class="accept-text">De acuerdo con las condiciones que se señalan en la oferta que se cita como referencia, (el cliente) ACEPTA dichas condiciones y lo manifiesta mediante la firma de la presente hoja.</div>
-<div class="sig-row">
-  <div class="sig-line"><span>POR EL CLIENTE:</span><div class="sig-name">${oferta.firmanteCliente || "—"}</div></div>
-  <div class="sig-line"><span>POR NOR ACUA:</span><div class="sig-name">${oferta.firmanteNorAcua || "D. Daniel Romero"}</div></div>
-</div>
-<table class="client-table">
-  <tr><td class="lbl">Denominación Social:</td><td>${cliente?.nombre || "—"}</td></tr>
-  <tr><td class="lbl">Dirección de Facturación:</td><td>${cliente?.direccion || ""} ${cliente?.poblacion || ""}</td></tr>
-  <tr><td class="lbl">C.I.F.:</td><td>${cliente?.nif || "—"}</td></tr>
-  <tr><td class="lbl">Forma de Pago:</td><td>${oferta.formaPago || "Según contrato"}</td></tr>
-</table>
-<div class="resumen"><div class="r-title">RESUMEN DE OFERTA</div>
-  <table style="width:100%;font-size:8.5pt;border-collapse:collapse">
-    <tr><td style="width:30%;padding:2px 0"><strong>Asunto:</strong></td><td style="font-weight:700">${oferta.asunto || "—"}</td></tr>
-    <tr><td style="padding:2px 0">${oferta.numero}</td><td></td></tr>
-    <tr><td style="padding:2px 0"><strong>Site:</strong></td><td style="font-weight:700">${oferta.emplazamiento || "—"}</td></tr>
-    <tr><td style="padding:2px 0"><strong>Honorarios:</strong></td><td style="font-weight:700">${fmtN(total)} €</td></tr>
+<div class="hdr"><div>${logoSVG}<div class="hdr-sub">NorAcua Ingeniería y Servicios</div></div></div>
+<div style="font-weight:700;font-size:10pt;margin-bottom:8px;border-bottom:1px solid #ddd;padding-bottom:6px">PRESUPUESTO</div>
+<div class="meta">
+  <table style="border-collapse:collapse;font-size:8.5pt;width:100%">
+    <tr><td style="width:130px;color:#666">Nº OFERTA:</td><td><strong>${oferta.numero}</strong></td><td style="width:130px;color:#666">FECHA:</td><td><strong>${fmtD(oferta.fecha)}</strong></td></tr>
+    <tr><td style="color:#666">ASUNTO:</td><td colspan="3"><strong>${oferta.asunto || "—"}</strong></td></tr>
+    <tr><td style="color:#666">VERSIÓN:</td><td><strong>${oferta.version || 1}</strong></td><td style="color:#666">EMPLAZAMIENTO:</td><td><strong>${oferta.emplazamiento || "—"}</strong></td></tr>
+    <tr><td style="color:#666">REF:</td><td><strong>${oferta.referencia || "—"}</strong></td><td style="color:#666">ZONA:</td><td><strong>${oferta.zona || "—"}</strong></td></tr>
   </table>
 </div>
-<div class="ftr"><span>${EMPRESA.nombre}</span><span>${EMPRESA.dir1} - ${EMPRESA.dir2}</span></div>
+<table class="presup"><thead><tr><th style="width:52%">CONCEPTO</th><th style="width:12%;text-align:center">CANT.</th><th style="width:18%;text-align:right">PRECIO UNITARIO</th><th style="width:16%;text-align:right">TOTAL</th></tr></thead>
+<tbody>${tablaLineas}<tr style="background:#003057;color:#fff"><td colspan="3" style="padding:5px 8px;text-align:right;font-weight:700;font-size:10pt">TOTAL</td><td style="padding:5px 8px;text-align:right;font-weight:800;font-size:12pt;color:#00c8c8">${fmtN(total)}</td></tr></tbody></table>
+<div class="nota"><strong>NOTA:</strong> No se incluye en la oferta la preparación de proyectos, certificados o cualquier documentación diferente de la especificada en la misma. Tampoco se incluye el pago de tasas.</div>
+<div class="accept">
+  <div class="accept-h">Aceptación de la oferta</div>
+  <div class="accept-b">De acuerdo con las condiciones que se señalan en la oferta que se cita como referencia, (el cliente) ACEPTA dichas condiciones y lo manifiesta mediante la firma de la presente hoja.</div>
+  <div class="sigs">
+    <div class="sig">Por el Cliente: ${oferta.firmanteCliente || "D/Dña."}<div class="sig-line">&nbsp;</div></div>
+    <div class="sig">Por NorAcua: ${oferta.firmanteNorAcua || "D. Daniel Romero"}<div class="sig-line">&nbsp;</div></div>
+  </div>
+  <table class="client-tbl">
+    <tr><td class="lbl">Denominación Social:</td><td>${cliente?.nombre || "—"}</td></tr>
+    <tr><td class="lbl">Dirección de facturación:</td><td>${cliente?.direccion || ""} ${cliente?.poblacion || ""}</td></tr>
+    <tr><td class="lbl">C.I.F.:</td><td>${cliente?.nif || "—"}</td></tr>
+    <tr><td class="lbl">Forma de pago:</td><td>${oferta.formaPago || "Según contrato"}</td></tr>
+  </table>
+  <div style="font-size:7.5pt;padding:6px 9px;color:#555;border-top:1px solid #ddd">NOTA: Esta hoja de pedido en formato propio, debidamente cumplimentada, sellada y firmada será devuelta a Nor Acua S, S.L.. en caso de aceptación de la oferta.</div>
+</div>
+<div class="resumen"><div class="rt">RESUMEN DE OFERTA</div>
+  <table><tr><td>ASUNTO:</td><td><strong>${oferta.asunto || "—"}</strong></td></tr>
+  <tr><td></td><td>${oferta.numero}</td></tr>
+  <tr><td>EMPLAZAMIENTO:</td><td><strong>${oferta.emplazamiento || "—"}</strong></td></tr>
+  <tr><td>HONORARIOS:</td><td><strong>${fmtN(total)}</strong></td></tr></table>
+</div>
 </body></html>`;
 }
 function abrirPDF(html, nom = "noracua") {
@@ -3286,8 +3347,9 @@ function App() {
         return arr.map(x => x.id === ofertaLimpia.id ? ofertaLimpia : x);
       });
     }
+    // Limpiar y navegar en batch para evitar renders intermedios con estado null
+    setEditOferta(null);
     setViewO(isAdmin ? "lista" : "mispropuestas");
-    setTimeout(() => setEditOferta(null), 0);
   };
   const onOfertaCliChange = v => {
     const cl = gCL(v);
@@ -3927,7 +3989,7 @@ function App() {
   }, "Todos proyectos"), proyectos.map(p => /*#__PURE__*/React.createElement("option", {
     key: p.id,
     value: p.id
-  }, p.nombre))), /*#__PURE__*/React.createElement("select", {
+  }, p.nombre, p.estacion ? ` | ${p.estacion}` : "", " (", p.zona, ")"))), /*#__PURE__*/React.createElement("select", {
     value: filtroRES,
     onChange: e => setFiltroRES(e.target.value),
     style: {
@@ -4112,7 +4174,7 @@ function App() {
   }, "Todos proyectos"), proyectos.map(p => /*#__PURE__*/React.createElement("option", {
     key: p.id,
     value: p.id
-  }, p.nombre))), /*#__PURE__*/React.createElement("select", {
+  }, p.nombre, p.estacion ? ` | ${p.estacion}` : "", " (", p.zona, ")"))), /*#__PURE__*/React.createElement("select", {
     value: filtroRSt,
     onChange: e => setFiltroRSt(e.target.value),
     style: {
@@ -6047,7 +6109,7 @@ function App() {
         [k]: Number(n)
       } : x));
     }
-  }, l, ": ", v))))))), modulo === "ofertas" && /*#__PURE__*/React.createElement(React.Fragment, null, !isAdmin && /*#__PURE__*/React.createElement(React.Fragment, null, viewO === "editor" && editOferta && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+  }, l, ": ", v))))))), modulo === "ofertas" && /*#__PURE__*/React.createElement(React.Fragment, null, !isAdmin && /*#__PURE__*/React.createElement(React.Fragment, null, viewO === "editor" && editOferta != null && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
       justifyContent: "space-between",
@@ -6322,7 +6384,7 @@ function App() {
       d: P.trash,
       sz: 11
     }))));
-  }))))), (viewO === "mispropuestas" || viewO === "lista") && !editOferta && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+  }))))), viewO !== "editor" && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
       justifyContent: "space-between",
