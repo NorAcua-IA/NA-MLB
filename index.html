@@ -1,17 +1,10 @@
 <!DOCTYPE html>
-<html lang="es">
-<head>
-<meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>NorAcua Suite v66</title>
+<html lang="es"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>NorAcua Suite v66</title>
 <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:'Segoe UI',-apple-system,sans-serif;background:#f4f6f8;}</style>
-</head>
-<body>
-<div id="root"></div>
-<script>
-const { useState, useEffect, useRef, useMemo, createElement } = React;
+</head><body><div id="root"></div><script>
+const{useState,useEffect,useRef,useMemo,createElement}=React;
 
 async function sha256(s) {
   const b = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s));
@@ -3267,37 +3260,34 @@ function App() {
     return genRefOferta(asunto, cl?.codigoRef || "", fecha, version);
   };
   const guardarOferta = () => {
-    try {
-      if (!editOferta || !editOferta.asunto) return;
-      const ofertaLimpia = {
-        ...editOferta,
-        lineas: Array.isArray(editOferta.lineas) ? editOferta.lineas : [],
-        id: editOferta.id || null
-      };
-      if (editOfertaMode === "new") {
-        if (isAdmin) setCfgOfertas(c => ({
-          ...c,
-          contadorActual: (c.contadorActual || 0) + 1
-        }));
-        setOfertas(prev => {
-          const arr = Array.isArray(prev) ? prev : [];
-          return [{
-            ...ofertaLimpia,
-            id: `o${Date.now()}`,
-            creadoEn: new Date().toISOString()
-          }, ...arr];
-        });
-      } else {
-        setOfertas(prev => {
-          const arr = Array.isArray(prev) ? prev : [];
-          return arr.map(x => x.id === ofertaLimpia.id ? ofertaLimpia : x);
-        });
-      }
-      setEditOferta(null);
-      setViewO(isAdmin ? "lista" : "mispropuestas");
-    } catch (e) {
-      console.error("Error guardarOferta:", e);
+    if (!editOferta || !editOferta.asunto) return;
+    const ofertaLimpia = {
+      ...editOferta,
+      lineas: Array.isArray(editOferta.lineas) ? editOferta.lineas : [],
+      id: editOferta.id || null
+    };
+    const nuevaId = `o${Date.now()}`;
+    if (editOfertaMode === "new") {
+      if (isAdmin) setCfgOfertas(c => ({
+        ...c,
+        contadorActual: (c.contadorActual || 0) + 1
+      }));
+      setOfertas(prev => {
+        const arr = Array.isArray(prev) ? prev : [];
+        return [{
+          ...ofertaLimpia,
+          id: nuevaId,
+          creadoEn: new Date().toISOString()
+        }, ...arr];
+      });
+    } else {
+      setOfertas(prev => {
+        const arr = Array.isArray(prev) ? prev : [];
+        return arr.map(x => x.id === ofertaLimpia.id ? ofertaLimpia : x);
+      });
     }
+    setViewO(isAdmin ? "lista" : "mispropuestas");
+    setTimeout(() => setEditOferta(null), 0);
   };
   const onOfertaCliChange = v => {
     const cl = gCL(v);
@@ -8957,9 +8947,5 @@ function App() {
 }
 
 
-const container = document.getElementById('root');
-const root = ReactDOM.createRoot(container);
-root.render(React.createElement(App));
-</script>
-</body>
-</html>
+ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(App));
+</script></body></html>
