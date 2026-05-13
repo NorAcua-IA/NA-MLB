@@ -9590,8 +9590,6 @@ function App() {
 }
 
 
-const ZONAS = ["CENTRO", "NORTE", "CATALUÑA", "BALEARES", "OTROS"];
-
 class ErrorBoundary extends React.Component {
   constructor(props) { super(props); this.state = { error: null, info: null }; }
   componentDidCatch(error, info) { this.setState({ error, info }); }
