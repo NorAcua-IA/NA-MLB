@@ -94,8 +94,8 @@ const EMPRESA = {
   web: "www.noracua.com"
 };
 const DEF_PWS = {
-  daniel: "@DOIEI1975cfs",
-  ignacio: "N@choEdMNAS26@"
+  daniel: "2def15a4347594d115032ebc00268ad35dc733114efe16388f80293ac4661ea8",
+  ignacio: "4a2502c4914732430b54a59f87cbfca2ebd296d5c226d68cb13fd739d398d764"
 };
 const DEF_USERS = {
   daniel: {
@@ -2673,8 +2673,7 @@ function App() {
   useEffect(() => {
     (async () => {
       try {
-        const hashes = await Promise.all(Object.entries(DEF_PWS).map(async ([k, pw]) => [k, await sha256(pw)]));
-        const defH = Object.fromEntries(hashes);
+        const defH = DEF_PWS;
         const su = await ld(SK.users, null);
         const merged = Object.fromEntries(Object.entries(DEF_USERS).map(([k, v]) => [k, {
           ...v,
