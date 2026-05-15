@@ -2857,6 +2857,18 @@ function App() {
         id: o.id
       });
     });
+    // Actividades certificadas por técnicos
+    registros.filter(r => r.estado === "certificado" && r.createdAt && r.createdAt > lastLogin).forEach(r => {
+      const p = proyectos.find(x => x.id === r.proyectoId);
+      items.push({
+        tipo: "certificado",
+        icon: "✅",
+        texto: `${r.trabajador || r.creadoPor} ha certificado: ${r.esGrupo ? ("grupo " + (r.lineasGrupo?.length || 0) + " conceptos") : (concs.find(c => c.id === r.conceptoId)?.nombre || "—")}`,
+        sub: p?.nombre || "",
+        fecha: r.createdAt,
+        id: r.id
+      });
+    });
     return items.sort((a, b) => b.fecha.localeCompare(a.fecha));
   }, [lastLogin, registros, ofertas, proyectos, concs, isAdmin]);
   const gP = id => proyectos.find(p => p.id === id);
@@ -4178,7 +4190,9 @@ function App() {
     }, /*#__PURE__*/React.createElement("div", {
       style: { display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", flex: 1 }
     }, /*#__PURE__*/React.createElement("span", { style: { fontWeight: 700, fontSize: 12 } }, _title),
+    proy && /*#__PURE__*/React.createElement("span", { style: { fontSize: 11, color: C.textSec, fontWeight: 600 } }, "· " + (proy.nombre || proy.po || "")),
     proy?.estacion && /*#__PURE__*/React.createElement("span", { style: { fontSize: 11, color: C.primary } }, "· " + proy.estacion),
+    !r.esGrupo && r.trabajador && /*#__PURE__*/React.createElement("span", { style: { fontSize: 11, color: C.muted } }, "· " + r.trabajador),
     /*#__PURE__*/React.createElement("span", { style: { fontSize: 11, color: C.muted } }, "· " + fmtD(r.fecha)),
     r.esGrupo && /*#__PURE__*/React.createElement("span", { style: { fontSize: 10, color: C.textSec } }, _nItems + " items")
     ), /*#__PURE__*/React.createElement("span", { style: { fontSize: 10, color: C.muted } }, _collapsed ? "▼" : "▲")
@@ -4378,7 +4392,9 @@ function App() {
     }, /*#__PURE__*/React.createElement("div", {
       style: { display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", flex: 1 }
     }, /*#__PURE__*/React.createElement("span", { style: { fontWeight: 700, fontSize: 12 } }, _title),
+    proy && /*#__PURE__*/React.createElement("span", { style: { fontSize: 11, color: C.textSec, fontWeight: 600 } }, "· " + (proy.nombre || proy.po || "")),
     proy?.estacion && /*#__PURE__*/React.createElement("span", { style: { fontSize: 11, color: C.primary } }, "· " + proy.estacion),
+    !r.esGrupo && r.trabajador && /*#__PURE__*/React.createElement("span", { style: { fontSize: 11, color: C.muted } }, "· " + r.trabajador),
     /*#__PURE__*/React.createElement("span", { style: { fontSize: 11, color: C.muted } }, "· " + fmtD(r.fecha)),
     r.esGrupo && /*#__PURE__*/React.createElement("span", { style: { fontSize: 10, color: C.textSec } }, _nItems + " items")
     ), /*#__PURE__*/React.createElement("span", { style: { fontSize: 10, color: C.muted } }, _collapsed ? "▼" : "▲")
