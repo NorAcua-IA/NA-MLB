@@ -4192,7 +4192,7 @@ function App() {
     }, /*#__PURE__*/React.createElement("span", { style: { fontWeight: 700, fontSize: 12 } }, _title),
     proy && /*#__PURE__*/React.createElement("span", { style: { fontSize: 11, color: C.textSec, fontWeight: 600 } }, "· " + (proy.nombre || proy.po || "")),
     proy?.estacion && /*#__PURE__*/React.createElement("span", { style: { fontSize: 11, color: C.primary } }, "· " + proy.estacion),
-    !r.esGrupo && r.trabajador && /*#__PURE__*/React.createElement("span", { style: { fontSize: 11, color: C.muted } }, "· " + r.trabajador),
+    r.trabajador && /*#__PURE__*/React.createElement("span", { style: { fontSize: 11, color: C.muted } }, "· " + r.trabajador),
     /*#__PURE__*/React.createElement("span", { style: { fontSize: 11, color: C.muted } }, "· " + fmtD(r.fecha)),
     r.esGrupo && /*#__PURE__*/React.createElement("span", { style: { fontSize: 10, color: C.textSec } }, _nItems + " items")
     ), /*#__PURE__*/React.createElement("span", { style: { fontSize: 10, color: C.muted } }, _collapsed ? "▼" : "▲")
@@ -4394,7 +4394,7 @@ function App() {
     }, /*#__PURE__*/React.createElement("span", { style: { fontWeight: 700, fontSize: 12 } }, _title),
     proy && /*#__PURE__*/React.createElement("span", { style: { fontSize: 11, color: C.textSec, fontWeight: 600 } }, "· " + (proy.nombre || proy.po || "")),
     proy?.estacion && /*#__PURE__*/React.createElement("span", { style: { fontSize: 11, color: C.primary } }, "· " + proy.estacion),
-    !r.esGrupo && r.trabajador && /*#__PURE__*/React.createElement("span", { style: { fontSize: 11, color: C.muted } }, "· " + r.trabajador),
+    r.trabajador && /*#__PURE__*/React.createElement("span", { style: { fontSize: 11, color: C.muted } }, "· " + r.trabajador),
     /*#__PURE__*/React.createElement("span", { style: { fontSize: 11, color: C.muted } }, "· " + fmtD(r.fecha)),
     r.esGrupo && /*#__PURE__*/React.createElement("span", { style: { fontSize: 10, color: C.textSec } }, _nItems + " items")
     ), /*#__PURE__*/React.createElement("span", { style: { fontSize: 10, color: C.muted } }, _collapsed ? "▼" : "▲")
@@ -8648,14 +8648,26 @@ function App() {
         padding: "6px 0",
         borderBottom: i < mEReg.lineasGrupo.length - 1 ? `1px solid ${C.border}` : "none"
       }
-    }, /*#__PURE__*/React.createElement("div", {
+    }, /*#__PURE__*/React.createElement("select", {
+      value: l.conceptoId || "",
+      onChange: e => setMEReg(r => ({
+        ...r,
+        lineasGrupo: r.lineasGrupo.map((x, j) => j === i ? { ...x, conceptoId: e.target.value } : x)
+      })),
       style: {
-        fontWeight: 600,
-        fontSize: 12,
-        color: C.textSec,
-        marginBottom: 4
+        width: "100%", marginBottom: 5, padding: "4px 7px",
+        border: "1px solid " + C.border, borderRadius: 4,
+        fontSize: 12, fontFamily: "inherit", background: C.inputBg, outline: "none"
       }
-    }, c?.nombre || "—"), /*#__PURE__*/React.createElement("div", {
+    }, /*#__PURE__*/React.createElement("option", { value: "" }, "— Seleccionar concepto —"),
+    CAP_BASE.map(cap => {
+      const items = concsActivos.filter(c2 => c2.capId === cap.cap);
+      if (!items.length) return null;
+      return /*#__PURE__*/React.createElement("optgroup", { key: cap.cap, label: cap.cap + ". " + cap.nombre },
+        items.map(c2 => /*#__PURE__*/React.createElement("option", { key: c2.id, value: c2.id }, c2.nombre))
+      );
+    })
+    ), /*#__PURE__*/React.createElement("div", {
       style: {
         display: "flex",
         gap: 7,
