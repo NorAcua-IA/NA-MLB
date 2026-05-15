@@ -1,10 +1,10 @@
-<!DOCTYPE html><html lang='es'><head><meta charset='UTF-8'/><meta name='viewport' content='width=device-width,initial-scale=1.0'/><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"/><meta http-equiv="Pragma" content="no-cache"/><meta http-equiv="Expires" content="0"/><title>NorAcua Suite v2.1</title>
+<!DOCTYPE html><html lang='es'><head><meta charset='UTF-8'/><meta name='viewport' content='width=device-width,initial-scale=1.0'/><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"/><meta http-equiv="Pragma" content="no-cache"/><meta http-equiv="Expires" content="0"/><title>NorAcua Suite v2.2</title>
 <script src='https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js'></script>
 <script src='https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js'></script>
 <style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:'Segoe UI',-apple-system,sans-serif;background:#f4f6f8;}</style>
 </head><body><div id='root'></div>
 <script>
-const SB_URL="https://lhmawivuxgekxleqvqle.supabase.co";const SB_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxobWF3aXZ1eGdla3hsZXF2cWxlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg2MTY1NTYsImV4cCI6MjA5NDE5MjU1Nn0.frbxipEXiMfxsiRjo9rilHDiXoc3BqYGxOh-Qgq0VhU";const SK_TABLE_MAP={"na-v20-proyectos":"na_proyectos","na-v20-registros":"na_registros","na-v21-facturas":"na_facturas","na-v21-ofertas":"na_ofertas","na-v20-clientes":"na_clientes","na-v21-conceptos-enc":"na_conceptos","na-v20-trabajadores":"na_trabajadores","na-v20-responsables":"na_responsables","na-v20-estaciones":"na_estaciones","na-v20-series":"na_series","na-v21-cfg-ofertas":"na_cfg_ofertas","na-v20-historico":"na_historico","na-last-login":"na_cfg_ofertas"};const _sbFetch=async(path,opts={})=>{const r=await fetch(SB_URL+path,{...opts,headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json',...(opts.headers||{})}});if(!r.ok){const e=await r.text();console.error('SB error',r.status,e);return null;}const ct=r.headers.get('content-type')||'';return ct.includes('json')?r.json():null;};window.storage={get:async(key)=>{const tbl=SK_TABLE_MAP[key];if(!tbl)return null;const rows=await _sbFetch('/rest/v1/'+tbl+'?id=eq.'+encodeURIComponent(key)+'&select=data',{method:'GET'});if(!rows||rows.length===0)return null;return {key,value:rows[0].data};},set:async(key,value)=>{const tbl=SK_TABLE_MAP[key];if(!tbl)return null;await _sbFetch('/rest/v1/'+tbl,{method:'POST',body:JSON.stringify([{id:key,data:value,updated_at:new Date().toISOString()}]),headers:{'Prefer':'resolution=merge-duplicates,return=minimal'}});return {key,value};},delete:async(key)=>{const tbl=SK_TABLE_MAP[key];if(!tbl)return null;await _sbFetch('/rest/v1/'+tbl+'?id=eq.'+encodeURIComponent(key),{method:'DELETE'});return {key,deleted:true}}};
+const SB_URL="https://lhmawivuxgekxleqvqle.supabase.co";const SB_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxobWF3aXZ1eGdla3hsZXF2cWxlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg2MTY1NTYsImV4cCI6MjA5NDE5MjU1Nn0.frbxipEXiMfxsiRjo9rilHDiXoc3BqYGxOh-Qgq0VhU";const SK_TABLE_MAP={"na-v20-proyectos":"na_proyectos","na-v20-registros":"na_registros","na-v21-facturas":"na_facturas","na-v21-ofertas":"na_ofertas","na-v20-clientes":"na_clientes","na-v21-conceptos-enc":"na_conceptos","na-v20-trabajadores":"na_trabajadores","na-v20-responsables":"na_responsables","na-v20-estaciones":"na_estaciones","na-v20-series":"na_series","na-v21-cfg-ofertas":"na_cfg_ofertas","na-v20-historico":"na_historico","na-last-login":"na_cfg_ofertas","na-v21-conceptos-activos":"na_cfg_ofertas"};const _sbFetch=async(path,opts={})=>{const r=await fetch(SB_URL+path,{...opts,headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json',...(opts.headers||{})}});if(!r.ok){const e=await r.text();console.error('SB error',r.status,e);return null;}const ct=r.headers.get('content-type')||'';return ct.includes('json')?r.json():null;};window.storage={get:async(key)=>{const tbl=SK_TABLE_MAP[key];if(!tbl)return null;const rows=await _sbFetch('/rest/v1/'+tbl+'?id=eq.'+encodeURIComponent(key)+'&select=data',{method:'GET'});if(!rows||rows.length===0)return null;return {key,value:rows[0].data};},set:async(key,value)=>{const tbl=SK_TABLE_MAP[key];if(!tbl)return null;await _sbFetch('/rest/v1/'+tbl,{method:'POST',body:JSON.stringify([{id:key,data:value,updated_at:new Date().toISOString()}]),headers:{'Prefer':'resolution=merge-duplicates,return=minimal'}});return {key,value};},delete:async(key)=>{const tbl=SK_TABLE_MAP[key];if(!tbl)return null;await _sbFetch('/rest/v1/'+tbl+'?id=eq.'+encodeURIComponent(key),{method:'DELETE'});return {key,deleted:true}}};
 const{useState,useEffect,useRef,useMemo,createElement}=React;
 
 async function sha256(s) {
@@ -61,7 +61,7 @@ async function sv(key, d) {
     console.error(e);
   }
 }
-const APP_VERSION = "2.1"; // Actualizar en cada release importante
+const APP_VERSION = "2.2"; // Actualizar en cada release importante
 
 const SK_LAST_LOGIN = "na-last-login";
 const SK = {
@@ -77,7 +77,8 @@ const SK = {
   facturas: "na-v21-facturas",
   estaciones: "na-v20-estaciones",
   ofertas: "na-v21-ofertas",
-  cfgOfertas: "na-v21-cfg-ofertas"
+  cfgOfertas: "na-v21-cfg-ofertas",
+  cActivos: "na-v21-conceptos-activos"
 };
 const ZONAS = ["CENTRO", "NORTE", "CATALUÑA", "BALEARES", "OTROS"];
 const IVA_OPS = [{v:0,l:"0%"},{v:4,l:"4%"},{v:10,l:"10%"},{v:21,l:"21%"}];
@@ -1988,6 +1989,11 @@ function EBdg({
       c: C.warn,
       bg: C.warnBg,
       l: "Pendiente"
+    },
+    certificado: {
+      c: "#0891b2",
+      bg: "#e0f2fe",
+      l: "Certificado"
     }
   }[estado] || {
     c: C.warn,
@@ -2566,6 +2572,8 @@ function App() {
   const [mEProy, setMEProy] = useState(null);
   const [mReg, setMReg] = useState(false);
   const [regLineas, setRegLineas] = useState([]);
+  const [collapsedIds, setCollapsedIds] = useState(new Set());
+  const toggleCard = id => setCollapsedIds(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
   const [mEReg, setMEReg] = useState(null);
   const [mEConc, setMEConc] = useState(null);
   const [mTrab, setMTrab] = useState(false);
@@ -2762,6 +2770,7 @@ function App() {
   }, [cfgOfertas, loading]);
   const saveConcs = async arr => {
     setConcs(arr);
+    await sv(SK.cActivos, arr.map(c => ({id: c.id, activo: c.activo !== false})));
     if (keyRef.current) {
       const e = await aesEnc(keyRef.current, arr);
       await sv(SK.cEnc, e);
@@ -4152,10 +4161,31 @@ function App() {
     }
   }, "No hay actividades con estos filtros."), rFiltrados.map(r => {
     const proy = gP(r.proyectoId);
+    const _collapsed = collapsedIds.has(r.id);
+    const _nItems = r.esGrupo ? (r.lineasGrupo?.length || 0) : 1;
+    const _title = r.esGrupo ? ("GRUPO · " + _nItems + " actividades") : (gC(r.conceptoId)?.nombre || "—");
     return /*#__PURE__*/React.createElement("div", {
       key: r.id,
+      style: { ...rowSt, padding: 0, overflow: "hidden" }
+    }, /*#__PURE__*/React.createElement("div", {
+      onClick: () => toggleCard(r.id),
       style: {
-        ...rowSt,
+        display: "flex", justifyContent: "space-between", alignItems: "center",
+        padding: "7px 12px", cursor: "pointer",
+        background: _collapsed ? "transparent" : C.pGlow,
+        borderBottom: "1px solid " + C.border
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: { display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", flex: 1 }
+    }, /*#__PURE__*/React.createElement("span", { style: { fontWeight: 700, fontSize: 12 } }, _title),
+    proy?.estacion && /*#__PURE__*/React.createElement("span", { style: { fontSize: 11, color: C.primary } }, "· " + proy.estacion),
+    /*#__PURE__*/React.createElement("span", { style: { fontSize: 11, color: C.muted } }, "· " + fmtD(r.fecha)),
+    r.esGrupo && /*#__PURE__*/React.createElement("span", { style: { fontSize: 10, color: C.textSec } }, _nItems + " items")
+    ), /*#__PURE__*/React.createElement("span", { style: { fontSize: 10, color: C.muted } }, _collapsed ? "▼" : "▲")
+    ), /*#__PURE__*/React.createElement("div", {
+      style: { display: _collapsed ? "none" : "block", padding: "8px 12px" }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
         display: "flex",
         justifyContent: "space-between",
         alignItems: "center"
@@ -4239,7 +4269,10 @@ function App() {
       }
     }, /*#__PURE__*/React.createElement(EBdg, {
       estado: r.estado
-    }), isAdmin && gT(r) != null && /*#__PURE__*/React.createElement("span", {
+    }), r.estado === "certificado" && /*#__PURE__*/React.createElement("span", {
+      style: { fontSize: 10, color: "#0891b2", fontWeight: 600, background: "#e0f2fe", padding: "2px 6px", borderRadius: 4 }
+    }, r.esGrupo ? ("Cert: " + (r.lineasGrupo||[]).map(l => l.udsCertificadas ?? l.cantidad).join("+") + " uds") : ("Cert: " + (r.udsCertificadas ?? r.cantidad) + " uds")),
+    isAdmin && gT(r) != null && /*#__PURE__*/React.createElement("span", {
       style: {
         fontWeight: 700,
         fontSize: 12,
@@ -4261,7 +4294,7 @@ function App() {
     }, /*#__PURE__*/React.createElement(Ic, {
       d: P.edit,
       sz: 13
-    }))));
+    }))))));
   })), view === "revision" && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("h2", {
     style: {
       fontSize: 17,
@@ -4304,7 +4337,7 @@ function App() {
     }
   }, /*#__PURE__*/React.createElement("option", {
     value: ""
-  }, "Todos estados"), ["pendiente", "aprobado", "rechazado"].map(s => /*#__PURE__*/React.createElement("option", {
+  }, "Todos estados"), ["pendiente", "aprobado", "certificado", "rechazado"].map(s => /*#__PURE__*/React.createElement("option", {
     key: s,
     value: s
   }, s.charAt(0).toUpperCase() + s.slice(1)))), isAdmin && /*#__PURE__*/React.createElement("select", {
@@ -4328,10 +4361,31 @@ function App() {
       tot = gT(r);
     const sinP = isAdmin && (gC(r.conceptoId)?.p?.[gP(r.proyectoId)?.zona || ""] ?? null) === null;
     const proy = gP(r.proyectoId);
+    const _collapsed = collapsedIds.has(r.id);
+    const _nItems = r.esGrupo ? (r.lineasGrupo?.length || 0) : 1;
+    const _title = r.esGrupo ? ("GRUPO · " + _nItems + " actividades") : (gC(r.conceptoId)?.nombre || "—");
     return /*#__PURE__*/React.createElement("div", {
       key: r.id,
+      style: { ...rowSt, padding: 0, overflow: "hidden" }
+    }, /*#__PURE__*/React.createElement("div", {
+      onClick: () => toggleCard(r.id),
       style: {
-        ...rowSt,
+        display: "flex", justifyContent: "space-between", alignItems: "center",
+        padding: "7px 12px", cursor: "pointer",
+        background: _collapsed ? "transparent" : C.pGlow,
+        borderBottom: "1px solid " + C.border
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: { display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", flex: 1 }
+    }, /*#__PURE__*/React.createElement("span", { style: { fontWeight: 700, fontSize: 12 } }, _title),
+    proy?.estacion && /*#__PURE__*/React.createElement("span", { style: { fontSize: 11, color: C.primary } }, "· " + proy.estacion),
+    /*#__PURE__*/React.createElement("span", { style: { fontSize: 11, color: C.muted } }, "· " + fmtD(r.fecha)),
+    r.esGrupo && /*#__PURE__*/React.createElement("span", { style: { fontSize: 10, color: C.textSec } }, _nItems + " items")
+    ), /*#__PURE__*/React.createElement("span", { style: { fontSize: 10, color: C.muted } }, _collapsed ? "▼" : "▲")
+    ), /*#__PURE__*/React.createElement("div", {
+      style: { display: _collapsed ? "none" : "block", padding: "8px 12px" }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
         display: "flex",
         flexDirection: "column",
         gap: 7
@@ -4503,7 +4557,7 @@ function App() {
     }, /*#__PURE__*/React.createElement(Ic, {
       d: P.trash,
       sz: 10
-    })))));
+    })))))));
   })), view === "informes" && isAdmin && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("h2", {
     style: {
       fontSize: 17,
@@ -8656,8 +8710,35 @@ function App() {
         textAlign: "right",
         outline: "none"
       }
-    })));
-  }))), isAdmin && /*#__PURE__*/React.createElement(Sel, {
+    })), /*#__PURE__*/React.createElement("button", {
+      onClick: () => setMEReg(r => ({
+        ...r,
+        lineasGrupo: r.lineasGrupo.filter((_, j) => j !== i)
+      })),
+      style: {
+        background: "none", border: "none", cursor: "pointer",
+        color: C.danger, fontSize: 14, padding: "2px 4px",
+        borderRadius: 3, fontFamily: "inherit", lineHeight: 1
+      }
+    }, "×"))
+  })), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setMEReg(r => ({
+      ...r,
+      lineasGrupo: [...(r.lineasGrupo || []), {
+        id: "lg_" + Date.now(),
+        conceptoId: concsActivos[0]?.id || "",
+        cantidad: 1,
+        observaciones: "",
+        precioManual: null
+      }]
+    })),
+    style: {
+      marginTop: 8, padding: "5px 12px", fontSize: 11,
+      background: C.primary, color: "#fff", border: "none",
+      borderRadius: 5, cursor: "pointer", fontFamily: "inherit"
+    }
+  }, "+ Añadir línea")
+  ), isAdmin && /*#__PURE__*/React.createElement(Sel, {
     label: "Estado",
     value: mEReg.estado,
     onChange: v => setMEReg(r => ({
