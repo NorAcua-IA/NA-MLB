@@ -4437,8 +4437,19 @@ function App() {
       style: { marginBottom: 16 }
     },
       /*#__PURE__*/React.createElement("div", {
-        style: { fontSize: 13, fontWeight: 700, color: C.warn, marginBottom: 8 }
-      }, "⏳ Certificaciones pendientes (" + certPending.length + ")"),
+        style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }
+      },
+        /*#__PURE__*/React.createElement("div", {
+          style: { fontSize: 13, fontWeight: 700, color: C.warn }
+        }, "⏳ Certificaciones pendientes (" + certPending.length + ")"),
+        /*#__PURE__*/React.createElement(Btn, {
+          sm: true, variant: "ghost",
+          onClick: async () => {
+            const fresh = await ld(SK.regs, null);
+            if (fresh) setRegistros(fresh);
+          }
+        }, "🔄 Recargar")
+      ),
       certPending.map(r => {
         const proy = gP(r.proyectoId);
         const pendLineas = (r.lineasGrupo || []).map((l, i) => ({ ...l, _i: i })).filter(l => l.certifEnviada && !l.certifAprobada);
