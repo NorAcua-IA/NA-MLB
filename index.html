@@ -2230,7 +2230,7 @@ function genInfPeriodo({
             fecha: fmtD(r.fecha),
             nom: c?.nombre || "—",
             trab: r.trabajador,
-            obs: (l.observaciones || "") + (l.certifAprobada ? " ✓cert" : ""),
+            obs: l.observaciones || "",
             pu, cant, dto: 0, totL,
             certif: l.certifAprobada
           };
@@ -2902,10 +2902,11 @@ function App() {
     if (r.esGrupo && r.lineasGrupo) {
       const zona = gP(r.proyectoId)?.zona;
       return r.lineasGrupo.reduce((s, l) => {
-        if (l.precioManual != null) return s + l.precioManual * (l.cantidad || 1);
+        const cant = (l.certifAprobada && l.cantCertif != null) ? l.cantCertif : (l.cantidad || 1);
+        if (l.precioManual != null) return s + l.precioManual * cant;
         const c = concs.find(x => x.id === l.conceptoId);
         const pu = c?.p?.[zona] ?? null;
-        return s + (pu != null ? pu * (l.cantidad || 1) : 0);
+        return s + (pu != null ? pu * cant : 0);
       }, 0);
     }
     const u = gPU(r);
@@ -3226,16 +3227,35 @@ function App() {
         esCabecera: true
       });
       rs.forEach(r => {
-        const c = gC(r.conceptoId);
-        const pu = r.precioManual != null ? r.precioManual : c?.p?.[p.zona] ?? 0;
-        lineas.push({
-          id: `l${Date.now()}${Math.random().toString(36).slice(2)}`,
-          concepto: `${c?.nombre || "—"}${!esMulti && p.po ? ` — PO: ${p.po}` : ""}${p.estacion ? ` — ${p.estacion}` : ""} (${fmtD(r.fecha)})`,
-          uds: r.cantidad || 1,
-          precio: pu,
-          descuento: 0,
-          iva: ivaDefecto
-        });
+        if (r.esGrupo && r.lineasGrupo?.length) {
+          // Expand group: one line per certified item
+          const certLines = r.lineasGrupo.filter(l => l.certifAprobada);
+          const linesToBill = certLines.length > 0 ? certLines : r.lineasGrupo;
+          linesToBill.forEach(l => {
+            const c = concs.find(x => x.id === l.conceptoId);
+            const cant = (l.certifAprobada && l.cantCertif != null) ? l.cantCertif : (l.cantidad || 1);
+            const pu = l.precioManual != null ? l.precioManual : c?.p?.[p.zona] ?? 0;
+            lineas.push({
+              id: `l${Date.now()}${Math.random().toString(36).slice(2)}`,
+              concepto: `${c?.nombre || "—"}${!esMulti && p.po ? ` — PO: ${p.po}` : ""}${p.estacion ? ` — ${p.estacion}` : ""} (${fmtD(r.fecha)})`,
+              uds: cant,
+              precio: pu,
+              descuento: 0,
+              iva: ivaDefecto
+            });
+          });
+        } else {
+          const c = gC(r.conceptoId);
+          const pu = r.precioManual != null ? r.precioManual : c?.p?.[p.zona] ?? 0;
+          lineas.push({
+            id: `l${Date.now()}${Math.random().toString(36).slice(2)}`,
+            concepto: `${c?.nombre || "—"}${!esMulti && p.po ? ` — PO: ${p.po}` : ""}${p.estacion ? ` — ${p.estacion}` : ""} (${fmtD(r.fecha)})`,
+            uds: r.cantidad || 1,
+            precio: pu,
+            descuento: 0,
+            iva: ivaDefecto
+          });
+        }
       });
     });
     if (!lineas.length) lineas.push({
@@ -4453,8 +4473,18 @@ function App() {
               style: { display: "flex", alignItems: "center", gap: 8, padding: "6px 8px", background: "#fef9c3", borderRadius: 4, fontSize: 12, marginBottom: 4 }
             },
               /*#__PURE__*/React.createElement("span", { style: { flex: 1 } }, conc?.nombre || "—"),
-              /*#__PURE__*/React.createElement("span", { style: { color: C.muted, fontSize: 11, whiteSpace: "nowrap" } },
-                "Certif: " + (l.cantCertif ?? l.cantidad) + " uds" + (l.cantidad !== l.cantCertif ? " (orig: " + l.cantidad + ")" : "")
+              /*#__PURE__*/React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 4 } },
+                /*#__PURE__*/React.createElement("span", { style: { color: C.muted, fontSize: 11 } }, "Certif:"),
+                /*#__PURE__*/React.createElement("input", {
+                  type: "number", min: "0", step: "0.01",
+                  value: l.cantCertif ?? l.cantidad,
+                  onChange: e => setRegistros(rs => rs.map(x => x.id === r.id ? {
+                    ...x, lineasGrupo: x.lineasGrupo.map((ll, j) => j === l._i ? { ...ll, cantCertif: Number(e.target.value) } : ll)
+                  } : x)),
+                  style: { width: 60, padding: "2px 5px", border: "1px solid " + C.border, borderRadius: 4, fontSize: 11, fontFamily: "inherit", background: C.inputBg, textAlign: "center" }
+                }),
+                /*#__PURE__*/React.createElement("span", { style: { color: C.muted, fontSize: 11 } }, "uds"),
+                l.cantidad !== l.cantCertif && /*#__PURE__*/React.createElement("span", { style: { color: C.muted, fontSize: 10 } }, "(orig: " + l.cantidad + ")")
               ),
               /*#__PURE__*/React.createElement(Btn, {
                 sm: true, variant: "success",
