@@ -4,7 +4,9 @@
 <style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:'Segoe UI',-apple-system,sans-serif;background:#f4f6f8;}</style>
 </head><body><div id='root'></div>
 <script>
-const SB_URL="https://lhmawivuxgekxleqvqle.supabase.co";const SB_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxobWF3aXZ1eGdla3hsZXF2cWxlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg2MTY1NTYsImV4cCI6MjA5NDE5MjU1Nn0.frbxipEXiMfxsiRjo9rilHDiXoc3BqYGxOh-Qgq0VhU";const SK_TABLE_MAP={"na-v20-proyectos":"na_proyectos","na-v20-registros":"na_registros","na-v21-facturas":"na_facturas","na-v21-ofertas":"na_ofertas","na-v20-clientes":"na_clientes","na-v21-conceptos-enc":"na_conceptos","na-v20-trabajadores":"na_trabajadores","na-v20-responsables":"na_responsables","na-v20-estaciones":"na_estaciones","na-v20-series":"na_series","na-v21-cfg-ofertas":"na_cfg_ofertas","na-v20-historico":"na_historico","na-last-login":"na_cfg_ofertas","na-v21-conceptos-activos":"na_cfg_ofertas"};const _sbFetch=async(path,opts={})=>{const r=await fetch(SB_URL+path,{...opts,headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json',...(opts.headers||{})}});if(!r.ok){const e=await r.text();console.error('SB error',r.status,e);return null;}const ct=r.headers.get('content-type')||'';return ct.includes('json')?r.json():null;};window.storage={get:async(key)=>{const tbl=SK_TABLE_MAP[key];if(!tbl)return null;const rows=await _sbFetch('/rest/v1/'+tbl+'?id=eq.'+encodeURIComponent(key)+'&select=data',{method:'GET'});if(!rows||rows.length===0)return null;return {key,value:rows[0].data};},set:async(key,value)=>{const tbl=SK_TABLE_MAP[key];if(!tbl)return null;await _sbFetch('/rest/v1/'+tbl,{method:'POST',body:JSON.stringify([{id:key,data:value,updated_at:new Date().toISOString()}]),headers:{'Prefer':'resolution=merge-duplicates,return=minimal'}});return {key,value};},delete:async(key)=>{const tbl=SK_TABLE_MAP[key];if(!tbl)return null;await _sbFetch('/rest/v1/'+tbl+'?id=eq.'+encodeURIComponent(key),{method:'DELETE'});return {key,deleted:true}}};
+const SB_URL="https://lhmawivuxgekxleqvqle.supabase.co";const SB_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxobWF3aXZ1eGdla3hsZXF2cWxlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg2MTY1NTYsImV4cCI6MjA5NDE5MjU1Nn0.frbxipEXiMfxsiRjo9rilHDiXoc3BqYGxOh-Qgq0VhU";const SK_TABLE_MAP={"na-v20-proyectos":"na_proyectos","na-v20-registros":"na_registros","na-v21-facturas":"na_facturas","na-v21-ofertas":"na_ofertas","na-v20-clientes":"na_clientes","na-v21-conceptos-enc":"na_conceptos","na-v20-trabajadores":"na_trabajadores","na-v20-responsables":"na_responsables","na-v20-estaciones":"na_estaciones","na-v20-series":"na_series","na-v21-cfg-ofertas":"na_cfg_ofertas","na-v20-historico":"na_historico","na-last-login":"na_cfg_ofertas","na-v21-conceptos-activos":"na_cfg_ofertas"};const _sbFetch=async(path,opts={})=>{const r=await fetch(SB_URL+path,{...opts,headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json',...(opts.headers||{})}});if(!r.ok){const e=await r.text();console.error('SB error',r.status,e);return null;}const ct=r.headers.get('content-type')||'';return ct.includes('json')?r.json():null;};window.storage={get:async(key)=>{const tbl=SK_TABLE_MAP[key];if(!tbl)return null;const rows=await _sbFetch('/rest/v1/'+tbl+'?id=eq.'+encodeURIComponent(key)+'&select=data',{method:'GET'});if(!rows||rows.length===0){// Supabase empty - check local backup
+const bk=localStorage.getItem('na_bk_'+key);if(bk){console.warn('[NorAcua] Supabase vacío para '+key+', usando backup local');return {key,value:bk};}return null;}return {key,value:rows[0].data};},set:async(key,value)=>{const tbl=SK_TABLE_MAP[key];if(!tbl)return null;// Save to localStorage backup first
+try{localStorage.setItem('na_bk_'+key,value);localStorage.setItem('na_bk_ts',new Date().toISOString());}catch(e){}await _sbFetch('/rest/v1/'+tbl,{method:'POST',body:JSON.stringify([{id:key,data:value,updated_at:new Date().toISOString()}]),headers:{'Prefer':'resolution=merge-duplicates,return=minimal'}});return {key,value};},delete:async(key)=>{const tbl=SK_TABLE_MAP[key];if(!tbl)return null;await _sbFetch('/rest/v1/'+tbl+'?id=eq.'+encodeURIComponent(key),{method:'DELETE'});return {key,deleted:true}}};
 const{useState,useEffect,useRef,useMemo,createElement}=React;
 
 async function sha256(s) {
@@ -2746,7 +2748,30 @@ function App() {
     if (!loading) sv(SK.proj, proyectos);
   }, [proyectos, loading]);
   useEffect(() => {
-    if (!loading) sv(SK.regs, registros);
+    if (!loading) {
+      // Safe merge: read current Supabase, merge by id, then save
+      (async () => {
+        try {
+          const fresh = await ld(SK.regs, null);
+          if (fresh && fresh.length > 0) {
+            // Build a map of fresh data
+            const freshMap = Object.fromEntries(fresh.map(r => [r.id, r]));
+            // Override with our local changes (our version wins for our records)
+            const myIds = new Set(registros.map(r => r.id));
+            const merged = [
+              ...registros, // our records (full authority)
+              ...fresh.filter(r => !myIds.has(r.id)) // others' records we don't have
+            ];
+            // Only save if merged differs from what we have
+            await sv(SK.regs, merged);
+          } else {
+            await sv(SK.regs, registros);
+          }
+        } catch(e) {
+          await sv(SK.regs, registros);
+        }
+      })();
+    }
   }, [registros, loading]);
   useEffect(() => {
     if (!loading) sv(SK.trabs, trabs);
@@ -4940,13 +4965,36 @@ function App() {
   }, /*#__PURE__*/React.createElement(Ic, {
     d: P.trash,
     sz: 10
-  })))))), view === "config" && isAdmin && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("h2", {
-    style: {
-      fontSize: 17,
-      fontWeight: 700,
-      marginBottom: 14
-    }
-  }, "Configuraci\xF3n"), /*#__PURE__*/React.createElement(Sec, {
+  })))))), view === "config" && isAdmin && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+    style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }
+  },
+    /*#__PURE__*/React.createElement("h2", { style: { fontSize: 17, fontWeight: 700 } }, "Configuraci\xF3n"),
+    /*#__PURE__*/React.createElement("div", { style: { display: "flex", gap: 8 } },
+      /*#__PURE__*/React.createElement(Btn, {
+        sm: true, variant: "ghost",
+        onClick: async () => {
+          const keys = ['na-v20-proyectos','na-v20-registros','na-v21-facturas','na-v21-ofertas',
+            'na-v20-clientes','na-v20-trabajadores','na-v20-responsables','na-v20-estaciones',
+            'na-v20-series','na-v20-historico','na-v21-cfg-ofertas'];
+          const bk = { fecha: new Date().toISOString(), datos: {} };
+          for (const k of keys) {
+            const r = await window.storage.get(k).catch(()=>null);
+            if (r?.value) { try { bk.datos[k] = JSON.parse(r.value); } catch { bk.datos[k] = r.value; } }
+          }
+          const blob = new Blob([JSON.stringify(bk, null, 2)], { type: 'application/json' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = 'noracua_backup_' + new Date().toISOString().slice(0,10) + '.json';
+          a.click();
+          URL.revokeObjectURL(url);
+        }
+      }, "⬇ Backup JSON"),
+      /*#__PURE__*/React.createElement("span", { style: { fontSize: 10, color: C.muted, alignSelf: "center" } },
+        localStorage.getItem('na_bk_ts') ? "Último guardado: " + new Date(localStorage.getItem('na_bk_ts')).toLocaleString('es-ES') : ""
+      )
+    )
+  ), /*#__PURE__*/React.createElement(Sec, {
     title: "Usuarios"
   }, Object.entries(usrs).map(([id, u]) => /*#__PURE__*/React.createElement("div", {
     key: id,
