@@ -3393,7 +3393,7 @@ function App() {
       ...d,
       clienteId: v,
       serieId: s?.id || d.serieId,
-      numero: s ? genNumFact(series, s.id, d.tipo) : d.numero,
+      numero: d.id ? d.numero : (s ? genNumFact(series, s.id, d.tipo) : d.numero),
       iban: cl?.iban || "",
       metodoPago: cl?.metodoPago || d.metodoPago,
       diasVto,
@@ -3407,12 +3407,12 @@ function App() {
   const onSerieChange = v => setEditDoc(d => ({
     ...d,
     serieId: v,
-    numero: genNumFact(series, v, d.tipo)
+    numero: d.id ? d.numero : genNumFact(series, v, d.tipo)
   }));
   const onTipoChange = v => setEditDoc(d => ({
     ...d,
     tipo: v,
-    numero: genNumFact(series, d.serieId, v)
+    numero: d.id ? d.numero : genNumFact(series, d.serieId, v)
   }));
   const onFechaChange = v => {
     const warn = checkFechaAnterior(series, editDoc?.serieId, editDoc?.tipo, v);
@@ -5925,7 +5925,9 @@ function App() {
     })), /*#__PURE__*/React.createElement(Inp, {
       label: "N\xBA documento",
       value: editDoc.numero,
-      disabled: true
+      disabled: !editDoc.id,
+      onChange: editDoc.id ? e => setEditDoc(d => ({...d, numero: e.target.value})) : undefined,
+      style: editDoc.id ? { background: "var(--input-bg)", fontWeight: 600 } : undefined
     }), /*#__PURE__*/React.createElement("div", {
       style: {
         display: "grid",
