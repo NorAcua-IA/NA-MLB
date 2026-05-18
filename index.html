@@ -5926,8 +5926,7 @@ function App() {
       label: "N\xBA documento",
       value: editDoc.numero,
       disabled: !editDoc.id,
-      onChange: editDoc.id ? e => setEditDoc(d => ({...d, numero: e.target.value})) : undefined,
-      style: editDoc.id ? { background: "var(--input-bg)", fontWeight: 600 } : undefined
+      onChange: editDoc.id ? v => setEditDoc(d => ({...d, numero: v})) : undefined
     }), /*#__PURE__*/React.createElement("div", {
       style: {
         display: "grid",
