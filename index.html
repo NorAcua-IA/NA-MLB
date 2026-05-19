@@ -3785,7 +3785,7 @@ function App() {
       return 0;
     });
     return r;
-  }, [registros, filtroRPid, filtroRES, filtroRSt, filtroRCreador, ordenR, isAdmin, user, proyectos]);
+  }, [registros, filtroRPid, filtroRES, filtroRSt, filtroRCreador, filtroRTrab, ordenR, isAdmin, user, proyectos]);
   const fFact = useMemo(() => facturas.filter(f => {
     if (filtroFT && f.tipo !== filtroFT) return false;
     if (filtroFE && f.estado !== filtroFE) return false;
@@ -4286,13 +4286,6 @@ function App() {
     key: t,
     value: t
   }, t))), /*#__PURE__*/React.createElement("select", {
-    value: filtroRTrab,
-    onChange: e => setFiltroRTrab(e.target.value),
-    style: { padding: "5px 9px", border: `1px solid ${C.border}`, borderRadius: 5, fontSize: 11, fontFamily: "inherit", background: C.inputBg }
-  },
-    /*#__PURE__*/React.createElement("option", { value: "" }, "Todos los t\xE9cnicos"),
-    trabs.map(t => /*#__PURE__*/React.createElement("option", { key: "trab_"+t, value: t }, t))
-  ), /*#__PURE__*/React.createElement("select", {
     value: ordenR,
     onChange: e => setOrdenR(e.target.value),
     style: {
@@ -4522,7 +4515,15 @@ function App() {
   }, "Todos los creadores"), trabs.map(t => /*#__PURE__*/React.createElement("option", {
     key: t,
     value: t
-  }, t)))),
+  }, t))),
+  /*#__PURE__*/React.createElement("select", {
+    value: filtroRTrab,
+    onChange: e => setFiltroRTrab(e.target.value),
+    style: { padding: "5px 9px", border: `1px solid ${C.border}`, borderRadius: 5, fontSize: 11, fontFamily: "inherit", background: C.inputBg }
+  },
+    /*#__PURE__*/React.createElement("option", { value: "" }, "Todos los t\xE9cnicos"),
+    trabs.map(t => /*#__PURE__*/React.createElement("option", { key: "rtrab_"+t, value: t }, t))
+  )),
   (() => {
     const certPending = registros.filter(r =>
       r.esGrupo && r.lineasGrupo?.some(l => l.certifEnviada && !l.certifAprobada)
