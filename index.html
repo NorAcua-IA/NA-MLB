@@ -3743,7 +3743,7 @@ function App() {
       };
     });
     factYear.forEach(f => {
-      const s = gS(f.serieId) || series.find(x => x.codigo === f.serie);
+      const s = series.find(x => x.codigo === f.serie) || gS(f.serieId);
       if (s) {
         const {
           base,
@@ -3782,8 +3782,8 @@ function App() {
     if (filtroFT && f.tipo !== filtroFT) return false;
     if (filtroFE && f.estado !== filtroFE) return false;
     if (filtroFS) {
-      const s = gS(f.serieId);
-      const serCodigo = s?.codigo || f.serie || "";
+      // f.serie is the source of truth; serieId is secondary
+      const serCodigo = f.serie || gS(f.serieId)?.codigo || "";
       if (serCodigo !== filtroFS) return false;
     }
     if (filtroFDesde && f.fecha < filtroFDesde) return false;
