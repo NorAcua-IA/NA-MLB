@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang='es'><head><meta charset='UTF-8'/><meta name='viewport' content='width=device-width,initial-scale=1.0'/><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"/><meta http-equiv="Pragma" content="no-cache"/><meta http-equiv="Expires" content="0"/><title>NorAcua Suite v2.3</title>
+<!DOCTYPE html><html lang='es'><head><meta charset='UTF-8'/><meta name='viewport' content='width=device-width,initial-scale=1.0'/><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"/><meta http-equiv="Pragma" content="no-cache"/><meta http-equiv="Expires" content="0"/><title>NorAcua Suite v2.4</title>
 <script src='https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js'></script>
 <script src='https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js'></script>
 <style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:'Segoe UI',-apple-system,sans-serif;background:#f4f6f8;}</style>
@@ -83,7 +83,7 @@ async function autoBackup(datos) {
     Object.keys(localStorage).filter(k => k.startsWith('na_autobk_na-backup-')).sort().reverse().slice(7).forEach(k => localStorage.removeItem(k));
   } catch(e) { console.warn('[NorAcua] autoBackup error:', e.message); }
 }
-const APP_VERSION = "2.3";
+const APP_VERSION = "2.4";
 if (typeof window !== "undefined" && window.localStorage) {
   const lastLoad = window.localStorage.getItem("na_lastload");
   const now = Date.now();
@@ -2646,6 +2646,7 @@ function App() {
   const [filtroRSt, setFiltroRSt] = useState("");
   // FIX #9: filtro por creador
   const [filtroRCreador, setFiltroRCreador] = useState("");
+  const [filtroRTrab, setFiltroRTrab] = useState("");
   const [ordenR, setOrdenR] = useState("fecha_desc");
   // Filtros facturas
   const [filtroFT, setFiltroFT] = useState("");
@@ -3767,6 +3768,7 @@ function App() {
     if (filtroRES) r = r.filter(x => gP(x.proyectoId)?.estacion === filtroRES);
     if (filtroRSt) r = r.filter(x => x.estado === filtroRSt);
     if (isAdmin && filtroRCreador) r = r.filter(x => (x.creadoPor || x.trabajador) === filtroRCreador);
+    if (filtroRTrab) r = r.filter(x => x.trabajador === filtroRTrab);
     r.sort((a, b) => {
       if (ordenR === "fecha_desc") return b.fecha.localeCompare(a.fecha);
       if (ordenR === "fecha_asc") return a.fecha.localeCompare(b.fecha);
@@ -3781,7 +3783,8 @@ function App() {
     if (filtroFE && f.estado !== filtroFE) return false;
     if (filtroFS) {
       const s = gS(f.serieId);
-      if (!s || s.codigo !== filtroFS) return false;
+      const serCodigo = s?.codigo || f.serie || "";
+      if (serCodigo !== filtroFS) return false;
     }
     if (filtroFDesde && f.fecha < filtroFDesde) return false;
     if (filtroFHasta && f.fecha > filtroFHasta) return false;
@@ -3801,6 +3804,15 @@ function App() {
     if (filtroOResp) o = o.filter(x => x.firmanteCliente && x.firmanteCliente.includes(filtroOResp));
     return o;
   }, [ofertas, filtroOE, filtroOC, filtroOES, filtroOZona, filtroOResp, proyectos]);
+  const exportarCSVOfertas = () => {
+    const rows = [["Número", "Versión", "Referencia", "Asunto", "Estado", "Cliente", "Fecha", "Honorarios", "Emplazamiento", "Zona", "PM", "PO", "Ref. Factura"]];
+    ofertas.forEach(o => {
+      const cl = clientes.find(c => c.id === o.clienteId);
+      const fmtC = n => (Number(n)||0).toFixed(2).replace(".", ",");
+      rows.push([o.numero||"", o.version||1, o.referencia||"", o.asunto||"", o.estado||"", cl?.nombre||o.cliente||"", fmtD(o.fecha), fmtC(o.honorarios||o.total||0), o.emplazamiento||"", o.zona||"", o.pm||"", o.po||"", o.facturaRef||""]);
+    });
+    exportCSV(rows, `Ofertas_NorAcua_${today()}.csv`);
+  };
   const exportarCSV = () => {
     const rows = [["Número", "Tipo", "Estado", "Cliente", "NIF", "Fecha", "Vencimiento", "Base bruta", "Descuentos", "Base imp.", "IVA", "Total", "Serie", "Método pago", "Observaciones", "PO"]];
     fFact.forEach(f => {
@@ -4266,6 +4278,13 @@ function App() {
     key: t,
     value: t
   }, t))), /*#__PURE__*/React.createElement("select", {
+    value: filtroRTrab,
+    onChange: e => setFiltroRTrab(e.target.value),
+    style: { padding: "5px 9px", border: `1px solid ${C.border}`, borderRadius: 5, fontSize: 11, fontFamily: "inherit", background: C.inputBg }
+  },
+    /*#__PURE__*/React.createElement("option", { value: "" }, "Todos los t\xE9cnicos"),
+    trabs.map(t => /*#__PURE__*/React.createElement("option", { key: "trab_"+t, value: t }, t))
+  ), /*#__PURE__*/React.createElement("select", {
     value: ordenR,
     onChange: e => setOrdenR(e.target.value),
     style: {
@@ -4779,7 +4798,10 @@ function App() {
         const isAp = l.certifAprobada, isEn = l.certifEnviada && !l.certifAprobada;
         return /*#__PURE__*/React.createElement("div", { key: l.id||i, style: { display:"flex", alignItems:"center", gap:8, padding:"4px 8px", borderRadius:4, fontSize:11, marginBottom:3, background:isAp?"#d1fae5":"#fef9c3", border:"1px solid "+(isAp?C.success:C.warn) } },
           /*#__PURE__*/React.createElement("span", { style: { color:isAp?"#065f46":C.warn } }, isAp?"✓":"⏳"),
-          /*#__PURE__*/React.createElement("span", { style: { flex:1 } }, conc?.nombre||"—"),
+          /*#__PURE__*/React.createElement("div", { style: { flex:1 } },
+          /*#__PURE__*/React.createElement("span", { style: { fontSize: 11 } }, conc?.nombre||"—"),
+          l.observaciones && /*#__PURE__*/React.createElement("div", { style: { fontSize: 10, color: C.muted, fontStyle: "italic", marginTop: 1 } }, l.observaciones)
+        ),
           isEn && /*#__PURE__*/React.createElement("input", { type:"number", min:"0", step:"0.01", value:l.cantCertif??l.cantidad, onChange:e=>setRegistros(rs=>rs.map(x=>x.id===r.id?{...x,lineasGrupo:x.lineasGrupo.map((ll,j)=>j===i?{...ll,cantCertif:Number(e.target.value)}:ll)}:x)), style:{width:55,padding:"2px 4px",border:"1px solid "+C.border,borderRadius:4,fontSize:11,fontFamily:"inherit",background:C.inputBg,textAlign:"center"} }),
           /*#__PURE__*/React.createElement("span", { style:{color:C.muted,whiteSpace:"nowrap"} }, (l.cantCertif??l.cantidad)+" uds"),
           isEn && /*#__PURE__*/React.createElement("div", {style:{display:"flex",gap:3}},
@@ -7002,12 +7024,14 @@ function App() {
       color: C.muted,
       fontWeight: 400
     }
-  }, "\u2014 pr\xF3xima: ", genNumOferta(cfgOfertas))), /*#__PURE__*/React.createElement(Btn, {
-    onClick: nuevaOferta
-  }, /*#__PURE__*/React.createElement(Ic, {
-    d: P.plus,
-    sz: 12
-  }), " Nueva oferta")), ofertas.filter(o => o.estado === "Propuesta").length > 0 && /*#__PURE__*/React.createElement("div", {
+  }, "\u2014 pr\xF3xima: ", genNumOferta(cfgOfertas))), /*#__PURE__*/React.createElement("div", { style: { display: "flex", gap: 8 } },
+    /*#__PURE__*/React.createElement(Btn, {
+      sm: true, variant: "ghost", onClick: exportarCSVOfertas
+    }, /*#__PURE__*/React.createElement(Ic, { d: P.csv, sz: 11 }), " Exportar CSV"),
+    /*#__PURE__*/React.createElement(Btn, {
+      onClick: nuevaOferta
+    }, /*#__PURE__*/React.createElement(Ic, { d: P.plus, sz: 12 }), " Nueva oferta")
+  )), ofertas.filter(o => o.estado === "Propuesta").length > 0 && /*#__PURE__*/React.createElement("div", {
     style: {
       background: C.warnBg,
       border: `1px solid ${C.warn}`,
@@ -8359,15 +8383,17 @@ function App() {
       l: c.nombre
     })),
     ph: "Sin cliente"
-  }), /*#__PURE__*/React.createElement(Inp, {
-    label: "Responsable BP",
-    value: fPr.responsableBP || "",
-    onChange: v => setFPr(p => ({
-      ...p,
-      responsableBP: v
-    })),
-    placeholder: "Opcional"
-  }), /*#__PURE__*/React.createElement("div", {
+  }), /*#__PURE__*/React.createElement("div", { style: { marginBottom: 11 } },
+    /*#__PURE__*/React.createElement("label", { style: { display: "block", fontSize: 10, fontWeight: 600, color: C.textSec, marginBottom: 3, textTransform: "uppercase", letterSpacing: .7 } }, "Responsable cliente"),
+    /*#__PURE__*/React.createElement("select", {
+      value: fPr.responsableBP || "",
+      onChange: e => setFPr(p => ({ ...p, responsableBP: e.target.value })),
+      style: { width: "100%", padding: "8px 11px", border: "1px solid " + C.border, borderRadius: 6, fontSize: 13, fontFamily: "inherit", background: C.inputBg, color: C.text }
+    },
+      /*#__PURE__*/React.createElement("option", { value: "" }, "— Seleccionar —"),
+      resps.map(r => /*#__PURE__*/React.createElement("option", { key: r.id || r.nombre, value: r.nombre }, r.nombre))
+    )
+  ), /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
       justifyContent: "flex-end",
@@ -8483,15 +8509,17 @@ function App() {
       l: c.nombre
     })),
     ph: "Sin cliente"
-  }), /*#__PURE__*/React.createElement(Inp, {
-    label: "Responsable BP",
-    value: mEProy.responsableBP || "",
-    onChange: v => setMEProy(p => ({
-      ...p,
-      responsableBP: v
-    })),
-    placeholder: "Opcional"
-  }), /*#__PURE__*/React.createElement("div", {
+  }), /*#__PURE__*/React.createElement("div", { style: { marginBottom: 11 } },
+    /*#__PURE__*/React.createElement("label", { style: { display: "block", fontSize: 10, fontWeight: 600, color: C.textSec, marginBottom: 3, textTransform: "uppercase", letterSpacing: .7 } }, "Responsable cliente"),
+    /*#__PURE__*/React.createElement("select", {
+      value: mEProy.responsableBP || "",
+      onChange: e => setMEProy(p => ({ ...p, responsableBP: e.target.value })),
+      style: { width: "100%", padding: "8px 11px", border: "1px solid " + C.border, borderRadius: 6, fontSize: 13, fontFamily: "inherit", background: C.inputBg, color: C.text }
+    },
+      /*#__PURE__*/React.createElement("option", { value: "" }, "— Seleccionar —"),
+      resps.map(r => /*#__PURE__*/React.createElement("option", { key: r.id || r.nombre, value: r.nombre }, r.nombre))
+    )
+  ), /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
       justifyContent: "flex-end",
