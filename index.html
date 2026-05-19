@@ -3763,12 +3763,20 @@ function App() {
   // FIX #6 + #9: filtrado registros
   const rFiltrados = useMemo(() => {
     let r = [...registros];
-    if (!isAdmin) r = r.filter(x => x.trabajador === user?.nombre || x.creadoPor === user?.nombre || x.trabajador === user?.id || x.creadoPor === user?.id);
+    if (!isAdmin) {
+      const _abbrMap = {'JSF':'Jordi Santos','YLS':'Yennyfer Lemus','DRF':'Daniel','ILS':'Ignacio López'};
+      const _userNames = new Set([user?.nombre, user?.id, ...Object.entries(_abbrMap).filter(([,v])=>v===user?.nombre).map(([k])=>k)].filter(Boolean));
+      r = r.filter(x => _userNames.has(x.trabajador) || _userNames.has(x.creadoPor));
+    }
     if (filtroRPid) r = r.filter(x => x.proyectoId === filtroRPid);
     if (filtroRES) r = r.filter(x => gP(x.proyectoId)?.estacion === filtroRES);
     if (filtroRSt) r = r.filter(x => x.estado === filtroRSt);
     if (isAdmin && filtroRCreador) r = r.filter(x => (x.creadoPor || x.trabajador) === filtroRCreador);
-    if (filtroRTrab) r = r.filter(x => x.trabajador === filtroRTrab);
+    if (filtroRTrab) {
+      const _abbrMap = {'JSF':'Jordi Santos','YLS':'Yennyfer Lemus','DRF':'Daniel','ILS':'Ignacio López'};
+      const _abbrRev = Object.fromEntries(Object.entries(_abbrMap).map(([k,v])=>[v,k]));
+      r = r.filter(x => x.trabajador === filtroRTrab || x.trabajador === _abbrRev[filtroRTrab]);
+    }
     r.sort((a, b) => {
       if (ordenR === "fecha_desc") return b.fecha.localeCompare(a.fecha);
       if (ordenR === "fecha_asc") return a.fecha.localeCompare(b.fecha);
@@ -5222,7 +5230,15 @@ function App() {
       color: C.muted,
       marginTop: 1
     }
-  }, "Fact: ", s.contFact, " \xB7 Supl: ", s.contSupl, " \xB7 Abon: ", s.contAbon)), /*#__PURE__*/React.createElement(Btn, {
+  }, "Fact: ", s.contFact, " \xB7 Supl: ", s.contSupl, " \xB7 Abon: ", s.contAbon),
+        /*#__PURE__*/React.createElement("div", {
+          style: { fontSize: 10, color: C.muted, marginTop: 2 }
+        },
+          s.ultimaFechaFact ? "\uD83D\uDCC4 \xDAlt. factura: " + fmtD(s.ultimaFechaFact) : "",
+          s.ultimaFechaFact && s.ultimaFechaSupl ? " \xB7 " : "",
+          s.ultimaFechaSupl ? "\uD83D\uDCC4 \xDAlt. suplido: " + fmtD(s.ultimaFechaSupl) : ""
+        )
+      )), /*#__PURE__*/React.createElement(Btn, {
     sm: true,
     variant: "ghost",
     onClick: () => delSerie(s.id),
@@ -9993,7 +10009,7 @@ function App() {
       fontSize: 10,
       color: C.muted
     }
-  }, "\xDAltimo acceso: ", new Date(lastLogin).toLocaleString("es-ES"))));
+  }, "\xDAltimo acceso: ", new Date(lastLogin).toLocaleString("es-ES")));
 }
 
 
