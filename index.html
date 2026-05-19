@@ -1651,9 +1651,9 @@ function calcDocTotal(doc) {
     iva += ivaAmt;
   });
   return {
-    base,
-    iva,
-    total: base + iva
+    base: Math.round(base * 100) / 100,
+    iva: Math.round(iva * 100) / 100,
+    total: Math.round((base + iva) * 100) / 100
   };
 }
 // FIX #3: descuento por línea en ofertas
