@@ -4592,7 +4592,7 @@ function App() {
       tot = gT(r);
     const sinP = isAdmin && (gC(r.conceptoId)?.p?.[gP(r.proyectoId)?.zona || ""] ?? null) === null;
     const proy = gP(r.proyectoId);
-    const _collapsed = !collapsedIds.has(r.id);
+    const _collapsed = collapsedIds.has(r.id);
     const _nItems = r.esGrupo ? (r.lineasGrupo?.length || 0) : 1;
     const _title = r.esGrupo ? ("GRUPO · " + _nItems + " actividades") : (gC(r.conceptoId)?.nombre || "—");
     return /*#__PURE__*/React.createElement("div", {
@@ -4820,7 +4820,7 @@ function App() {
         );
       })
     ))));
-  })))), view === "informes" && isAdmin && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("h2", {
+  }))), view === "informes" && isAdmin && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("h2", {
     style: {
       fontSize: 17,
       fontWeight: 700,
