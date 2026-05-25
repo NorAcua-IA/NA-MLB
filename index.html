@@ -2163,8 +2163,11 @@ function OBdg({
 function Sec({
   title,
   action,
-  children
+  children,
+  collapsible = true,
+  defaultOpen = true
 }) {
+  const [open, setOpen] = React.useState(defaultOpen);
   return /*#__PURE__*/React.createElement("div", {
     style: {
       background: C.card,
@@ -2174,13 +2177,21 @@ function Sec({
       marginBottom: 14
     }
   }, /*#__PURE__*/React.createElement("div", {
+    onClick: collapsible ? () => setOpen(o => !o) : undefined,
     style: {
       display: "flex",
       justifyContent: "space-between",
       alignItems: "center",
-      marginBottom: 12
+      marginBottom: open ? 12 : 0,
+      cursor: collapsible ? "pointer" : "default",
+      userSelect: "none"
     }
-  }, /*#__PURE__*/React.createElement("h3", {
+  }, /*#__PURE__*/React.createElement("div", {
+    style: { display: "flex", alignItems: "center", gap: 8 }
+  }, collapsible && /*#__PURE__*/React.createElement("span", {
+    style: { fontSize: 10, color: C.muted, transition: "transform 0.15s", display: "inline-block", transform: open ? "rotate(0deg)" : "rotate(-90deg)" }
+  }, "▼"),
+  /*#__PURE__*/React.createElement("h3", {
     style: {
       fontSize: 12,
       fontWeight: 700,
@@ -2189,7 +2200,12 @@ function Sec({
       textTransform: "uppercase",
       letterSpacing: .8
     }
-  }, title), action), children);
+  }, title)),
+  /*#__PURE__*/React.createElement("div", {
+    onClick: e => e.stopPropagation(),
+    style: { display: "flex", alignItems: "center" }
+  }, action)),
+  open && children);
 }
 const Chip = ({
   label,
@@ -2638,6 +2654,9 @@ function App() {
   const [editOferta, setEditOferta] = useState(null);
   const [editOfertaMode, setEditOfertaMode] = useState("new");
   const [addLineaCapFiltro, setAddLineaCapFiltro] = useState("");
+  const [searchProy, setSearchProy] = useState("");
+  const [searchCli, setSearchCli] = useState("");
+  const [searchConc, setSearchConc] = useState("");
   // FIX #7: filtro capítulo técnico
   const [propCapFiltro, setPropCapFiltro] = useState("");
   // Filtros trabajos
@@ -5152,7 +5171,12 @@ function App() {
       d: P.plus,
       sz: 10
     }), " A\xF1adir")
-  }, clientes.map(cl => /*#__PURE__*/React.createElement("div", {
+  }, /*#__PURE__*/React.createElement("input", {
+    placeholder: "Buscar cliente...",
+    value: searchCli,
+    onChange: e => setSearchCli(e.target.value),
+    style: { width: "100%", padding: "6px 10px", border: `1px solid ${C.border}`, borderRadius: 6, fontSize: 12, fontFamily: "inherit", background: C.inputBg, marginBottom: 8, boxSizing: "border-box", outline: "none" }
+  }), clientes.filter(cl => !searchCli || (cl.nombre + " " + (cl.nif || "") + " " + (cl.codigoRef || "")).toLowerCase().includes(searchCli.toLowerCase())).map(cl => /*#__PURE__*/React.createElement("div", {
     key: cl.id,
     style: {
       padding: "9px 12px",
@@ -5280,7 +5304,12 @@ function App() {
       d: P.plus,
       sz: 10
     }), " A\xF1adir")
-  }, proyectos.map(p => /*#__PURE__*/React.createElement("div", {
+  }, /*#__PURE__*/React.createElement("input", {
+    placeholder: "Buscar proyecto...",
+    value: searchProy,
+    onChange: e => setSearchProy(e.target.value),
+    style: { width: "100%", padding: "6px 10px", border: `1px solid ${C.border}`, borderRadius: 6, fontSize: 12, fontFamily: "inherit", background: C.inputBg, marginBottom: 8, boxSizing: "border-box", outline: "none" }
+  }), proyectos.filter(p => !searchProy || (p.nombre + " " + (p.po || "") + " " + (p.estacion || "")).toLowerCase().includes(searchProy.toLowerCase())).map(p => /*#__PURE__*/React.createElement("div", {
     key: p.id,
     style: {
       display: "flex",
@@ -5440,7 +5469,12 @@ function App() {
       gap: 7,
       alignItems: "center"
     }
-  }, /*#__PURE__*/React.createElement("span", {
+  }, /*#__PURE__*/React.createElement("input", {
+    placeholder: "Buscar concepto...",
+    value: searchConc,
+    onChange: e => setSearchConc(e.target.value),
+    style: { flex: 1, padding: "5px 9px", border: `1px solid ${C.border}`, borderRadius: 5, fontSize: 11, fontFamily: "inherit", background: C.inputBg, outline: "none" }
+  }), /*#__PURE__*/React.createElement("span", {
     style: {
       fontSize: 11,
       fontWeight: 600,
@@ -5463,7 +5497,7 @@ function App() {
     key: cap.cap,
     value: cap.cap
   }, cap.cap, ". ", cap.nombre)))), CAP_BASE.filter(cap => !capFiltro || cap.cap === capFiltro).map(cap => {
-    const items = concs.filter(c => c.capId === cap.cap);
+    const items = concs.filter(c => c.capId === cap.cap && (!searchConc || (c.nombre || "").toLowerCase().includes(searchConc.toLowerCase())));
     if (!items.length) return null;
     const act = items.filter(c => c.activo !== false).length;
     return /*#__PURE__*/React.createElement("div", {
@@ -8575,20 +8609,23 @@ function App() {
     },
     title: isAdmin ? "Nueva actividad" : "Registrar actividades",
     w: isAdmin ? 520 : 640
-  }, /*#__PURE__*/React.createElement(Sel, {
-    label: "Proyecto",
-    value: fRg.proyectoId,
-    onChange: v => setFRg(r => ({
-      ...r,
-      proyectoId: v
-    })),
-    options: proyectos.map(p => ({
-      v: p.id,
-      l: `${p.nombre}${p.estacion ? ` | ${p.estacion}` : ""} (${p.zona})`
-    })),
-    ph: "Seleccionar...",
-    req: true
-  }), /*#__PURE__*/React.createElement(Sel, {
+  }, /*#__PURE__*/React.createElement("div", { style: { marginBottom: 11 } },
+    /*#__PURE__*/React.createElement("label", { style: { display: "block", fontSize: 10, fontWeight: 600, color: C.textSec, marginBottom: 4, textTransform: "uppercase", letterSpacing: .7 } }, "Proyecto *"),
+    /*#__PURE__*/React.createElement("input", {
+      placeholder: "Buscar proyecto...",
+      value: fRg.searchPr || "",
+      onChange: e => setFRg(r => ({ ...r, searchPr: e.target.value, proyectoId: "" })),
+      style: { width: "100%", padding: "7px 11px", border: `1px solid ${C.border}`, borderRadius: 6, fontSize: 13, fontFamily: "inherit", background: C.inputBg, marginBottom: 5, boxSizing: "border-box", outline: "none" }
+    }),
+    /*#__PURE__*/React.createElement("select", {
+      value: fRg.proyectoId,
+      onChange: e => setFRg(r => ({ ...r, proyectoId: e.target.value })),
+      style: { width: "100%", padding: "8px 11px", border: `1px solid ${fRg.proyectoId ? C.border : C.danger + "66"}`, borderRadius: 6, fontSize: 13, fontFamily: "inherit", background: C.inputBg, outline: "none", boxSizing: "border-box" }
+    },
+      /*#__PURE__*/React.createElement("option", { value: "" }, "Seleccionar..."),
+      proyectos.filter(p => !fRg.searchPr || (p.nombre + " " + (p.estacion || "") + " " + (p.po || "")).toLowerCase().includes((fRg.searchPr || "").toLowerCase())).map(p => /*#__PURE__*/React.createElement("option", { key: p.id, value: p.id }, p.nombre + (p.estacion ? ` | ${p.estacion}` : "") + ` (${p.zona})`))
+    )
+  ), /*#__PURE__*/React.createElement(Sel, {
     label: "Trabajador",
     value: fRg.trabajador,
     onChange: v => setFRg(r => ({
@@ -8835,19 +8872,23 @@ function App() {
     onClose: () => setMEReg(null),
     title: mEReg?.esGrupo ? "Editar grupo de actividades" : "Editar actividad",
     w: mEReg?.esGrupo ? 640 : 520
-  }, mEReg && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(Sel, {
-    label: "Proyecto",
-    value: mEReg.proyectoId,
-    onChange: v => setMEReg(r => ({
-      ...r,
-      proyectoId: v
-    })),
-    options: proyectos.map(p => ({
-      v: p.id,
-      l: `${p.nombre}${p.estacion ? ` | ${p.estacion}` : ""} (${p.zona})`
-    })),
-    req: true
-  }), /*#__PURE__*/React.createElement(Sel, {
+  }, mEReg && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", { style: { marginBottom: 11 } },
+    /*#__PURE__*/React.createElement("label", { style: { display: "block", fontSize: 10, fontWeight: 600, color: C.textSec, marginBottom: 4, textTransform: "uppercase", letterSpacing: .7 } }, "Proyecto *"),
+    /*#__PURE__*/React.createElement("input", {
+      placeholder: "Buscar proyecto...",
+      value: mEReg.searchPr || "",
+      onChange: e => setMEReg(r => ({ ...r, searchPr: e.target.value })),
+      style: { width: "100%", padding: "7px 11px", border: `1px solid ${C.border}`, borderRadius: 6, fontSize: 13, fontFamily: "inherit", background: C.inputBg, marginBottom: 5, boxSizing: "border-box", outline: "none" }
+    }),
+    /*#__PURE__*/React.createElement("select", {
+      value: mEReg.proyectoId,
+      onChange: e => setMEReg(r => ({ ...r, proyectoId: e.target.value })),
+      style: { width: "100%", padding: "8px 11px", border: `1px solid ${C.border}`, borderRadius: 6, fontSize: 13, fontFamily: "inherit", background: C.inputBg, outline: "none", boxSizing: "border-box" }
+    },
+      /*#__PURE__*/React.createElement("option", { value: "" }, "Seleccionar..."),
+      proyectos.filter(p => !mEReg.searchPr || (p.nombre + " " + (p.estacion || "") + " " + (p.po || "")).toLowerCase().includes((mEReg.searchPr || "").toLowerCase())).map(p => /*#__PURE__*/React.createElement("option", { key: p.id, value: p.id }, p.nombre + (p.estacion ? ` | ${p.estacion}` : "") + ` (${p.zona})`))
+    )
+  ), /*#__PURE__*/React.createElement(Sel, {
     label: "Trabajador",
     value: mEReg.trabajador,
     onChange: v => setMEReg(r => ({
