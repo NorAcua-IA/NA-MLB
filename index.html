@@ -9069,7 +9069,36 @@ function App() {
         textAlign: "right",
         outline: "none"
       }
-    })), /*#__PURE__*/React.createElement("button", {
+    }), isAdmin && /*#__PURE__*/React.createElement("div", {
+      style: { display: "flex", alignItems: "center", gap: 2 }
+    }, /*#__PURE__*/React.createElement("input", {
+      type: "number",
+      min: "0",
+      max: "100",
+      step: "1",
+      placeholder: "0",
+      value: l.descuento ?? 0,
+      onChange: e => setMEReg(r => ({
+        ...r,
+        lineasGrupo: r.lineasGrupo.map((x, j) => j === i ? {
+          ...x,
+          descuento: Number(e.target.value) || 0
+        } : x)
+      })),
+      style: {
+        width: 45,
+        padding: "4px 6px",
+        border: `1px solid ${C.border}`,
+        borderRadius: 4,
+        fontSize: 12,
+        fontFamily: "inherit",
+        background: C.inputBg,
+        textAlign: "center",
+        outline: "none"
+      }
+    }), /*#__PURE__*/React.createElement("span", {
+      style: { fontSize: 10, color: C.muted }
+    }, "%dto"))), /*#__PURE__*/React.createElement("button", {
       onClick: () => setMEReg(r => ({
         ...r,
         lineasGrupo: r.lineasGrupo.filter((_, j) => j !== i)
