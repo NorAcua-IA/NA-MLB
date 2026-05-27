@@ -4856,8 +4856,8 @@ function App() {
           /*#__PURE__*/React.createElement("span", { style: { fontSize: 11 } }, conc?.nombre||"—"),
           l.observaciones && /*#__PURE__*/React.createElement("div", { style: { fontSize: 10, color: C.muted, fontStyle: "italic", marginTop: 1 } }, l.observaciones)
         ),
-          isEn && /*#__PURE__*/React.createElement("input", { type:"number", min:"0", step:"0.01", value:l.cantCertif??l.cantidad, onChange:e=>setRegistros(rs=>rs.map(x=>x.id===r.id?{...x,lineasGrupo:x.lineasGrupo.map((ll,j)=>j===i?{...ll,cantCertif:Number(e.target.value)}:ll)}:x)), style:{width:55,padding:"2px 4px",border:"1px solid "+C.border,borderRadius:4,fontSize:11,fontFamily:"inherit",background:C.inputBg,textAlign:"center"} }),
-          /*#__PURE__*/React.createElement("span", { style:{color:C.muted,whiteSpace:"nowrap"} }, (l.cantCertif??l.cantidad)+" uds"),
+          (isEn || isAdmin) && /*#__PURE__*/React.createElement("input", { type:"number", min:"0", step:"0.01", value:l.cantCertif??l.cantidad, onChange:e=>setRegistros(rs=>rs.map(x=>x.id===r.id?{...x,lineasGrupo:x.lineasGrupo.map((ll,j)=>j===i?{...ll,cantCertif:Number(e.target.value)}:ll)}:x)), style:{width:55,padding:"2px 4px",border:"1px solid "+C.border,borderRadius:4,fontSize:11,fontFamily:"inherit",background:C.inputBg,textAlign:"center"} }),
+          !isAdmin && /*#__PURE__*/React.createElement("span", { style:{color:C.muted,whiteSpace:"nowrap"} }, (l.cantCertif??l.cantidad)+" uds"),
           isAdmin && /*#__PURE__*/React.createElement("div", { style:{display:"flex",alignItems:"center",gap:2} },
             /*#__PURE__*/React.createElement("input", { type:"number", min:"0", max:"100", step:"1", value:l.descuento??0, placeholder:"0", onChange:e=>setRegistros(rs=>rs.map(x=>x.id===r.id?{...x,lineasGrupo:x.lineasGrupo.map((ll,j)=>j===i?{...ll,descuento:Number(e.target.value)||0}:ll)}:x)), style:{width:45,padding:"2px 4px",border:"1px solid "+C.border,borderRadius:4,fontSize:11,fontFamily:"inherit",background:C.inputBg,textAlign:"center"} }),
             /*#__PURE__*/React.createElement("span", { style:{fontSize:10,color:C.muted} }, "%dto")
