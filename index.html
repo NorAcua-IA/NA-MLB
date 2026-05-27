@@ -2682,7 +2682,9 @@ function App() {
   const [fInf, setFInf] = useState({
     pid: "",
     desde: "",
-    hasta: ""
+    hasta: "",
+    resp: "",
+    estacion: ""
   });
   const ep = {
     nombre: "",
@@ -3276,6 +3278,10 @@ function App() {
         const rp = proyectos.find(p => p.id === r.proyectoId);
         if (rp?.estacion !== fInf.estacion) return false;
       }
+      if (fInf.resp) {
+        const rp = proyectos.find(p => p.id === r.proyectoId);
+        if (rp?.responsableBP !== fInf.resp) return false;
+      }
       return r.fecha >= fInf.desde && r.fecha <= fInf.hasta;
     });
     if (!rs.length) {
@@ -3285,7 +3291,7 @@ function App() {
     const total = rs.reduce((s, r) => s + (gT(r) || 0), 0);
     const fmtInfD = d => d ? d.replace(/-/g,"").substring(2) : "";
     const nomCliente = proy ? (proy.po || proy.nombre) : "Global";
-    const nom = `INF-${nomCliente}(${fmtInfD(fInf.desde)}-${fmtInfD(fInf.hasta)})`;
+    const nom = `INF-${fInf.resp ? fInf.resp.replace(/\s+/g,"-") + "-" : ""}${nomCliente}(${fmtInfD(fInf.desde)}-${fmtInfD(fInf.hasta)})`;
     const html = genInfPeriodo({
       proy,
       regs: rs,
@@ -4922,13 +4928,33 @@ function App() {
       l: e
     })),
     ph: "Todas las estaciones"
+  }), /*#__PURE__*/React.createElement(Sel, {
+    label: "Responsable de cliente (opcional)",
+    value: fInf.resp || "",
+    onChange: v => setFInf(f => ({
+      ...f,
+      resp: v
+    })),
+    options: [...new Set(proyectos.map(p => p.responsableBP).filter(Boolean))].sort().map(r => ({
+      v: r,
+      l: r
+    })),
+    ph: "Todos los responsables"
   }), fInf.desde && fInf.hasta && (() => {
     const rs = registros.filter(r => {
       if (r.estado !== "aprobado") return false;
+      const tieneCertif = r.esGrupo
+        ? (r.lineasGrupo || []).some(l => l.certifAprobada)
+        : !!r.estadoCertif;
+      if (!tieneCertif) return false;
       if (fInf.pid && r.proyectoId !== fInf.pid) return false;
       if (fInf.estacion) {
         const rp = proyectos.find(p => p.id === r.proyectoId);
         if (rp?.estacion !== fInf.estacion) return false;
+      }
+      if (fInf.resp) {
+        const rp = proyectos.find(p => p.id === r.proyectoId);
+        if (rp?.responsableBP !== fInf.resp) return false;
       }
       return r.fecha >= fInf.desde && r.fecha <= fInf.hasta;
     });
