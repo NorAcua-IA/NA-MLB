@@ -2277,14 +2277,19 @@ function genInfPeriodo({
       const c = concs.find(x => x.id === r.conceptoId);
       const pu = r.precioManual != null ? r.precioManual : c?.p?.[p.zona] ?? null;
       const cant = r.cantidad || 1;
-      const totL = pu != null ? pu * cant : null;
-      return [{ fecha: fmtD(r.fecha), nom: c?.nombre || "—", trab: r.trabajador, obs: r.observaciones || "", pu, cant, dto: 0, totL }];
+      const dto = Number(r.descuento) || 0;
+      const totL = pu != null ? pu * cant * (1 - dto / 100) : null;
+      return [{ fecha: fmtD(r.fecha), nom: c?.nombre || "—", trab: r.trabajador, obs: r.observaciones || "", pu, cant, dto, totL }];
     });
+    const bruto = ls.reduce((s, l) => s + (l.pu != null ? l.pu * l.cant : 0), 0);
     const sub = ls.reduce((s, l) => s + (l.totL || 0), 0);
+    const dtoAmt = bruto - sub;
     totalG += sub;
     return {
       p,
       ls,
+      bruto,
+      dtoAmt,
       sub
     };
   });
@@ -2348,8 +2353,11 @@ ${bloques.map(({
   <thead><tr><th style="width:8%">FECHA</th><th style="width:28%">CONCEPTO</th><th style="width:8%;text-align:center">TÉCNICO</th><th style="width:18%">OBS.</th><th style="width:11%;text-align:right">P. UNITARIO</th><th style="width:6%;text-align:right">CANT.</th><th style="width:8%;text-align:right">DTO.(%)</th><th style="width:11%;text-align:right">TOTAL</th></tr></thead>
   <tbody>${ls.map(l => `<tr><td>${l.fecha}</td><td>${l.nom}</td><td style="text-align:center">${l.trab}</td><td style="font-size:8pt;color:#444">${l.obs}</td><td style="text-align:right">${fmtN(l.pu)}</td><td style="text-align:right">${l.cant}</td><td style="text-align:right">${l.dto}%</td><td style="text-align:right;font-weight:700">${fmtN(l.totL)}</td></tr>`).join("")}</tbody>
 </table>
+${dtoAmt > 0.005 ? `<div class="subtotal-row" style="background:#fff8e1!important;color:#92400e;font-weight:400;font-size:8pt">Bruto: ${fmtN(bruto)} &nbsp;·&nbsp; Descuento: -${fmtN(dtoAmt)}</div>` : ""}
 <div class="subtotal-row">SUBTOTAL: ${fmtN(sub)}</div>`).join("")}
-<div class="total-blk"><div class="total-inner"><div class="tl">TOTAL FACTURABLE GLOBAL</div><div class="tv">${fmtN(totalG)}</div></div></div>
+<div class="total-blk"><div class="total-inner">
+${bloques.some(b => b.dtoAmt > 0.005) ? `<div style="font-size:8pt;color:#666;text-align:right;margin-bottom:4px">Bruto: ${fmtN(bloques.reduce((s,b)=>s+b.bruto,0))} &nbsp;·&nbsp; Descuento total: -${fmtN(bloques.reduce((s,b)=>s+b.dtoAmt,0))}</div>` : ""}
+<div class="tl">TOTAL FACTURABLE GLOBAL</div><div class="tv">${fmtN(totalG)}</div></div></div>
 <div class="sigs">
   <div class="sig">NorAcua Ingeniería y Servicios<div class="sig-line">&nbsp;</div></div>
   <div class="sig">BP Energía España, S.A.U. - Vº Bº<div class="sig-line">&nbsp;</div></div>
