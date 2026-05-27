@@ -2271,7 +2271,7 @@ function genInfPeriodo({
           const cant = (l.certifAprobada && l.cantCertif != null) ? l.cantCertif : (l.cantidad || 1);
           const pu = l.precioManual != null ? l.precioManual : c?.p?.[p.zona] ?? null;
           const totL = pu != null ? pu * cant : null;
-          return { fecha: fmtD(r.fecha), nom: c?.nombre || "—", trab: r.trabajador, obs: l.observaciones || "", pu, cant, dto: 0, totL };
+          return { fecha: fmtD(r.fecha), nom: c?.nombre || "—", trab: r.trabajador, obs: l.observaciones || "", pu, cant, dto: Number(l.descuento) || 0, totL: pu * cant * (1 - (Number(l.descuento) || 0) / 100) };
         });
       }
       const c = concs.find(x => x.id === r.conceptoId);
@@ -3008,10 +3008,11 @@ function App() {
       const linesToCount = hasCertif ? r.lineasGrupo.filter(l => l.certifAprobada) : r.lineasGrupo;
       return linesToCount.reduce((s, l) => {
         const cant = (l.certifAprobada && l.cantCertif != null) ? l.cantCertif : (l.cantidad || 1);
-        if (l.precioManual != null) return s + l.precioManual * cant;
+        const dto = (Number(l.descuento) || 0) / 100;
+        if (l.precioManual != null) return s + l.precioManual * cant * (1 - dto);
         const c = concs.find(x => x.id === l.conceptoId);
         const pu = c?.p?.[zona] ?? null;
-        return s + (pu != null ? pu * cant : 0);
+        return s + (pu != null ? pu * cant * (1 - dto) : 0);
       }, 0);
     }
     const u = gPU(r);
@@ -4857,6 +4858,10 @@ function App() {
         ),
           isEn && /*#__PURE__*/React.createElement("input", { type:"number", min:"0", step:"0.01", value:l.cantCertif??l.cantidad, onChange:e=>setRegistros(rs=>rs.map(x=>x.id===r.id?{...x,lineasGrupo:x.lineasGrupo.map((ll,j)=>j===i?{...ll,cantCertif:Number(e.target.value)}:ll)}:x)), style:{width:55,padding:"2px 4px",border:"1px solid "+C.border,borderRadius:4,fontSize:11,fontFamily:"inherit",background:C.inputBg,textAlign:"center"} }),
           /*#__PURE__*/React.createElement("span", { style:{color:C.muted,whiteSpace:"nowrap"} }, (l.cantCertif??l.cantidad)+" uds"),
+          isAdmin && /*#__PURE__*/React.createElement("div", { style:{display:"flex",alignItems:"center",gap:2} },
+            /*#__PURE__*/React.createElement("input", { type:"number", min:"0", max:"100", step:"1", value:l.descuento??0, placeholder:"0", onChange:e=>setRegistros(rs=>rs.map(x=>x.id===r.id?{...x,lineasGrupo:x.lineasGrupo.map((ll,j)=>j===i?{...ll,descuento:Number(e.target.value)||0}:ll)}:x)), style:{width:45,padding:"2px 4px",border:"1px solid "+C.border,borderRadius:4,fontSize:11,fontFamily:"inherit",background:C.inputBg,textAlign:"center"} }),
+            /*#__PURE__*/React.createElement("span", { style:{fontSize:10,color:C.muted} }, "%dto")
+          ),
           isEn && /*#__PURE__*/React.createElement("div", {style:{display:"flex",gap:3}},
             /*#__PURE__*/React.createElement(Btn, { sm:true, variant:"success", onClick:()=>approveLinea(r.id,i) }, "✓"),
             /*#__PURE__*/React.createElement(Btn, { sm:true, variant:"ghost", style:{color:C.danger}, onClick:()=>rejectLinea(r.id,i) }, "✕")
