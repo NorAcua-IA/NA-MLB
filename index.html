@@ -1,10 +1,10 @@
-<!DOCTYPE html><html lang='es'><head><meta charset='UTF-8'/><meta name='viewport' content='width=device-width,initial-scale=1.0'/><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"/><meta http-equiv="Pragma" content="no-cache"/><meta http-equiv="Expires" content="0"/><title>NorAcua Suite v2.4</title>
+<!DOCTYPE html><html lang='es'><head><meta charset='UTF-8'/><meta name='viewport' content='width=device-width,initial-scale=1.0'/><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"/><meta http-equiv="Pragma" content="no-cache"/><meta http-equiv="Expires" content="0"/><title>NorAcua Suite v2.5</title>
 <script src='https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js'></script>
 <script src='https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js'></script>
 <style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:'Segoe UI',-apple-system,sans-serif;background:#f4f6f8;}</style>
 </head><body><div id='root'></div>
 <script>
-const SB_URL="https://lhmawivuxgekxleqvqle.supabase.co";const SB_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxobWF3aXZ1eGdla3hsZXF2cWxlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg2MTY1NTYsImV4cCI6MjA5NDE5MjU1Nn0.frbxipEXiMfxsiRjo9rilHDiXoc3BqYGxOh-Qgq0VhU";const SK_TABLE_MAP={"na-v20-proyectos":"na_proyectos","na-v20-registros":"na_registros","na-v21-facturas":"na_facturas","na-v21-ofertas":"na_ofertas","na-v20-clientes":"na_clientes","na-v21-conceptos-enc":"na_conceptos","na-v20-trabajadores":"na_trabajadores","na-v20-responsables":"na_responsables","na-v20-estaciones":"na_estaciones","na-v20-series":"na_series","na-v21-cfg-ofertas":"na_cfg_ofertas","na-v20-historico":"na_historico","na-last-login":"na_cfg_ofertas","na-v21-conceptos-activos":"na_cfg_ofertas","na-backup-auto":"na_cfg_ofertas"};const _sbFetch=async(path,opts={})=>{const r=await fetch(SB_URL+path,{...opts,headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json',...(opts.headers||{})}});if(!r.ok){const e=await r.text();console.error('SB error',r.status,e);return null;}const ct=r.headers.get('content-type')||'';return ct.includes('json')?r.json():null;};window.storage={get:async(key)=>{const tbl=SK_TABLE_MAP[key];if(!tbl)return null;const rows=await _sbFetch('/rest/v1/'+tbl+'?id=eq.'+encodeURIComponent(key)+'&select=data',{method:'GET'});if(!rows||rows.length===0){// Supabase empty - check local backup
+const SB_URL="https://lhmawivuxgekxleqvqle.supabase.co";const SB_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxobWF3aXZ1eGdla3hsZXF2cWxlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg2MTY1NTYsImV4cCI6MjA5NDE5MjU1Nn0.frbxipEXiMfxsiRjo9rilHDiXoc3BqYGxOh-Qgq0VhU";const SK_TABLE_MAP={"na-v20-proyectos":"na_proyectos","na-v20-registros":"na_registros","na-v21-facturas":"na_facturas","na-v21-ofertas":"na_ofertas","na-v20-clientes":"na_clientes","na-v21-conceptos-enc":"na_conceptos","na-v20-trabajadores":"na_trabajadores","na-v20-responsables":"na_responsables","na-v20-estaciones":"na_estaciones","na-v20-series":"na_series","na-v21-cfg-ofertas":"na_cfg_ofertas","na-v20-historico":"na_historico","na-last-login":"na_cfg_ofertas","na-v21-conceptos-activos":"na_cfg_ofertas","na-backup-auto":"na_cfg_ofertas","na-v25-hsse-sups":"na_registros","na-v25-hsse-cfg":"na_cfg_ofertas"};const _sbFetch=async(path,opts={})=>{const r=await fetch(SB_URL+path,{...opts,headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json',...(opts.headers||{})}});if(!r.ok){const e=await r.text();console.error('SB error',r.status,e);return null;}const ct=r.headers.get('content-type')||'';return ct.includes('json')?r.json():null;};window.storage={get:async(key)=>{const tbl=SK_TABLE_MAP[key];if(!tbl)return null;const rows=await _sbFetch('/rest/v1/'+tbl+'?id=eq.'+encodeURIComponent(key)+'&select=data',{method:'GET'});if(!rows||rows.length===0){// Supabase empty - check local backup
 const bk=localStorage.getItem('na_bk_'+key);if(bk){console.warn('[NorAcua] Supabase vacío para '+key+', usando backup local');return {key,value:bk};}return null;}return {key,value:rows[0].data};},set:async(key,value)=>{const tbl=SK_TABLE_MAP[key];if(!tbl)return null;// Save to localStorage backup first
 try{localStorage.setItem('na_bk_'+key,value);localStorage.setItem('na_bk_ts',new Date().toISOString());}catch(e){}await _sbFetch('/rest/v1/'+tbl,{method:'POST',body:JSON.stringify([{id:key,data:value,updated_at:new Date().toISOString()}]),headers:{'Prefer':'resolution=merge-duplicates,return=minimal'}});return {key,value};},delete:async(key)=>{const tbl=SK_TABLE_MAP[key];if(!tbl)return null;await _sbFetch('/rest/v1/'+tbl+'?id=eq.'+encodeURIComponent(key),{method:'DELETE'});return {key,deleted:true}}};
 const{useState,useEffect,useRef,useMemo,createElement}=React;
@@ -83,7 +83,7 @@ async function autoBackup(datos) {
     Object.keys(localStorage).filter(k => k.startsWith('na_autobk_na-backup-')).sort().reverse().slice(7).forEach(k => localStorage.removeItem(k));
   } catch(e) { console.warn('[NorAcua] autoBackup error:', e.message); }
 }
-const APP_VERSION = "2.4";
+const APP_VERSION = "2.5";
 if (typeof window !== "undefined" && window.localStorage) {
   const lastLoad = window.localStorage.getItem("na_lastload");
   const now = Date.now();
@@ -108,7 +108,9 @@ const SK = {
   estaciones: "na-v20-estaciones",
   ofertas: "na-v21-ofertas",
   cfgOfertas: "na-v21-cfg-ofertas",
-  cActivos: "na-v21-conceptos-activos"
+  cActivos: "na-v21-conceptos-activos",
+  hsseSups: "na-v25-hsse-sups",
+  hsseCfg: "na-v25-hsse-cfg"
 };
 const ZONAS = ["CENTRO", "NORTE", "CATALUÑA", "BALEARES", "OTROS"];
 const IVA_OPS = [{v:0,l:"0%"},{v:4,l:"4%"},{v:10,l:"10%"},{v:21,l:"21%"}];
@@ -2367,6 +2369,198 @@ ${bloques.some(b => b.dtoAmt > 0.005) ? `<div style="font-size:8pt;color:#666;te
 <div class="ftr"><span>NorAcua Ingeniería y Servicios - ${EMPRESA.dir1} - ${EMPRESA.dir2} - ${EMPRESA.web}</span><span>Informe generado: ${fechaGen} · ${regs.length} registros</span></div>
 </body></html>`;
 }
+function genInfHSSE({ sups, desde, hasta, po, hsseCfg }) {
+  const fmtE = n => n == null ? "0,00 \u20AC" : Number(n).toLocaleString("es-ES", { minimumFractionDigits: 2, useGrouping: true }) + " \u20AC";
+  const fmtFD = d => { if (!d) return "\u2014"; const [,m,dd] = d.split("-"); return dd + "/" + m; };
+  const fmtFull = d => { if (!d) return "\u2014"; const [y,m,dd] = d.split("-"); return dd + "/" + m + "/" + y; };
+  const periodo = fmtFull(desde) + " - " + fmtFull(hasta);
+  const fechaGen = new Date().toLocaleDateString("es-ES");
+
+  const totalHoras = sups.reduce((a,s) => a + Number(s.horasAdmin ?? s.horas ?? 0), 0);
+  const totalImporte = sups.reduce((a,s) => {
+    const h = Number(s.horasAdmin ?? s.horas ?? 0);
+    const p = hsseCfg && hsseCfg.preciosPorZona && hsseCfg.preciosPorZona[s.zona] ? hsseCfg.preciosPorZona[s.zona] : 0;
+    return a + h * p;
+  }, 0);
+
+  // Resumen por zonas: CATALUÑA + BALEARES agrupadas
+  const zonaLabel = z => (z === "CATALU\u00D1A" || z === "BALEARES") ? "CATALU\u00D1A / BALEARES" : (z || "OTRAS");
+  const zonas = {};
+  sups.forEach(s => {
+    const zl = zonaLabel(s.zona);
+    if (!zonas[zl]) zonas[zl] = { horas: 0, importe: 0 };
+    const h = Number(s.horasAdmin ?? s.horas ?? 0);
+    const precio = hsseCfg && hsseCfg.preciosPorZona && hsseCfg.preciosPorZona[s.zona] ? hsseCfg.preciosPorZona[s.zona] : 0;
+    zonas[zl].horas += h;
+    zonas[zl].importe += h * precio;
+  });
+
+  const rows = sups
+    .sort((a,b) => (a.fecha||"").localeCompare(b.fecha||""))
+    .map((s, i) => {
+      const h = Number(s.horasAdmin ?? s.horas ?? 0);
+      const precio = hsseCfg && hsseCfg.preciosPorZona && hsseCfg.preciosPorZona[s.zona] ? hsseCfg.preciosPorZona[s.zona] : 0;
+      const importe = h * precio;
+      const bg = i % 2 === 0 ? "#ffffff" : "#f5f8fc";
+      const incCell = s.incidencias === "S\u00ED"
+        ? '<td style="text-align:center;color:#c0392b;font-weight:700">S\u00CD</td>'
+        : '<td style="text-align:center;color:#aaa">No</td>';
+      return `<tr style="background:${bg}">
+        <td>${fmtFD(s.fecha)}</td>
+        <td><b>${s.site||"\u2014"}</b></td>
+        <td>${s.tipoActividad||"\u2014"}</td>
+        <td>${zonaLabel(s.zona)}</td>
+        <td>${s.supervisor||"\u2014"}</td>
+        <td>${s.encargo||"\u2014"}</td>
+        <td>${s.empresa||"\u2014"}</td>
+        <td>${s.motivoSupervision||"\u2014"}</td>
+        <td>${s.comentarios||""}</td>
+        <td style="text-align:center">${s.pctAuditoria ? s.pctAuditoria+"%" : "\u2014"}</td>
+        <td style="text-align:center">${s.obraConSupervision||"\u2014"}</td>
+        ${incCell}
+        <td style="text-align:right">${h}</td>
+        <td style="text-align:right;font-weight:600">${precio > 0 ? fmtE(importe) : "\u2014"}</td>
+      </tr>`;
+    }).join("");
+
+  const zonaRows = Object.entries(zonas).map(([zl, data], i) => {
+    const bg = i % 2 === 0 ? "#ffffff" : "#f5f8fc";
+    return `<tr style="background:${bg}">
+      <td><b>${zl}</b></td>
+      <td style="text-align:right">${data.horas}</td>
+      <td style="text-align:right;font-weight:600">${data.importe > 0 ? fmtE(data.importe) : "\u2014"}</td>
+    </tr>`;
+  }).join("");
+
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Informe HSSE</title><style>
+*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important}
+@page{size:A4 landscape;margin:10mm 10mm 14mm 10mm}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Calibri',Arial,sans-serif;font-size:7pt;color:#222;background:#fff}
+.hdr{display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:6px;border-bottom:2pt solid #1c3e5e;margin-bottom:8px}
+.hdr-left img{height:32px}
+.hdr-right{text-align:right}
+.hdr-right .org{font-size:9.5pt;font-weight:700;color:#1c3e5e}
+.hdr-right .sub{font-size:7pt;color:#555;margin-top:1px}
+.titulo-bar{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:5px}
+.titulo-bar .tit{font-size:10.5pt;font-weight:700;color:#1c3e5e;text-transform:uppercase;letter-spacing:.5px}
+.titulo-bar .per{font-size:8pt;font-weight:700;color:#555}
+.meta{display:flex;gap:16px;margin-bottom:7px;font-size:7pt}
+.meta span{color:#555}.meta strong{color:#1c3e5e}
+table.act{width:100%;border-collapse:collapse;font-size:6.8pt;table-layout:fixed}
+table.act thead tr{background:#1c3e5e!important;color:#fff!important}
+table.act th{padding:3px 4px;text-align:left;font-weight:700;white-space:nowrap;overflow:hidden}
+table.act th.r{text-align:right}
+table.act td{padding:2.5px 4px;border-bottom:1px solid #e8ecf0;vertical-align:top;line-height:1.25;overflow:hidden}
+table.act tr:hover td{background:#eef3f8!important}
+.subtotal-bar{display:flex;justify-content:flex-end;gap:24px;background:#dce8f3!important;padding:4px 8px;font-size:7.5pt;font-weight:700;color:#1c3e5e;border-bottom:2px solid #1c3e5e}
+.bottom{display:flex;justify-content:space-between;align-items:flex-start;margin-top:10px;gap:16px}
+table.sum{border-collapse:collapse;font-size:7pt}
+table.sum th{background:#1c3e5e!important;color:#fff!important;padding:3px 8px;text-align:left;font-weight:700}
+table.sum th.r{text-align:right}
+table.sum td{padding:3px 8px;border-bottom:1px solid #e8ecf0}
+table.sum tfoot td{background:#dce8f3!important;font-weight:700;color:#1c3e5e;padding:4px 8px;border-top:2px solid #1c3e5e}
+.total-inner{text-align:right;border-top:2pt solid #1c3e5e;padding-top:6px;min-width:200px}
+.total-inner .tl{font-size:6.5pt;color:#888;text-transform:uppercase;letter-spacing:1.5px}
+.total-inner .tv{font-size:15pt;font-weight:700;color:#1c3e5e}
+.total-inner .th{font-size:8.5pt;font-weight:700;color:#555;margin-bottom:1px}
+.sigs{display:flex;justify-content:space-between;margin-top:12px;gap:30px;padding-bottom:6px;border-bottom:1px solid #ccc;page-break-inside:avoid}
+.sig{flex:1;text-align:center;font-size:7.5pt;color:#444}
+.sig-line{border-top:1px solid #999;margin-top:26px;padding-top:3px}
+.ftr{font-size:6pt;color:#aaa;display:flex;justify-content:space-between;border-top:1px solid #eee;padding-top:3px;margin-top:8px}
+@media print{.bottom{page-break-inside:avoid}.sigs{page-break-inside:avoid}}
+</style></head><body><script>window.onload=function(){window.print();}<\/script>
+
+<div class="hdr">
+  <div class="hdr-left"><img src="data:image/png;base64,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"></div>
+  <div class="hdr-right">
+    <div class="org">NorAcua Ingeniería y Servicios</div>
+    <div class="sub">Gestión HSSE · Supervisores Flotantes</div>
+  </div>
+</div>
+
+<div class="titulo-bar">
+  <span class="tit">Informe de Actividad — Supervisores HSSE</span>
+  <span class="per">Período: ${periodo}</span>
+</div>
+
+<div class="meta">
+  <span><strong>Generado:</strong> ${fechaGen}</span>
+  ${po ? `<span><strong>PO:</strong> ${po}</span>` : ""}
+  <span><strong>Supervisiones:</strong> ${sups.length}</span>
+  <span><strong>Total horas:</strong> ${totalHoras} h</span>
+</div>
+
+<table class="act">
+  <colgroup>
+    <col style="width:4.5%">
+    <col style="width:10%">
+    <col style="width:9%">
+    <col style="width:9%">
+    <col style="width:8%">
+    <col style="width:7%">
+    <col style="width:7%">
+    <col style="width:13%">
+    <col style="width:13%">
+    <col style="width:4%">
+    <col style="width:4.5%">
+    <col style="width:4%">
+    <col style="width:3.5%">
+    <col style="width:4.5%">
+  </colgroup>
+  <thead>
+    <tr>
+      <th>Fecha</th>
+      <th>SITE (ES)</th>
+      <th>Tipo actividad</th>
+      <th>Zona</th>
+      <th>Supervisor</th>
+      <th>Encargo</th>
+      <th>Empresa</th>
+      <th>Motivo supervisión</th>
+      <th>Comentarios</th>
+      <th class="r">% Aud.</th>
+      <th class="r">Obra sup.</th>
+      <th class="r">Incid.</th>
+      <th class="r">Horas</th>
+      <th class="r">Importe</th>
+    </tr>
+  </thead>
+  <tbody>${rows}</tbody>
+</table>
+<div class="subtotal-bar">
+  <span>Total horas: <strong>${totalHoras} h</strong></span>
+  ${totalImporte > 0 ? `<span>Importe total: <strong>${fmtE(totalImporte)}</strong></span>` : ""}
+</div>
+
+<div class="bottom">
+  <div>
+    <div style="background:#1c3e5e;color:#fff;padding:3px 8px;font-size:7.5pt;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:0">Resumen por zonas</div>
+    <table class="sum">
+      <thead><tr><th>Zona</th><th class="r">Horas</th><th class="r">Importe</th></tr></thead>
+      <tbody>${zonaRows}</tbody>
+      <tfoot><tr><td><strong>TOTAL</strong></td><td style="text-align:right"><strong>${totalHoras} h</strong></td><td style="text-align:right"><strong>${totalImporte > 0 ? fmtE(totalImporte) : "—"}</strong></td></tr></tfoot>
+    </table>
+  </div>
+  <div class="total-inner">
+    <div class="tl">Total horas período</div>
+    <div class="th">${totalHoras} horas</div>
+    ${totalImporte > 0 ? `<div class="tl" style="margin-top:6px">Importe total</div><div class="tv">${fmtE(totalImporte)}</div>` : ""}
+  </div>
+</div>
+
+<div class="sigs">
+  <div class="sig"><div class="sig-line">NorAcua Ingeniería y Servicios</div></div>
+  <div class="sig"><div class="sig-line">Responsable BP España</div></div>
+</div>
+
+<div class="ftr">
+  <span>NorAcua Ingeniería y Servicios — Informe HSSE</span>
+  <span>Generado: ${fechaGen}</span>
+</div>
+</body></html>`;
+}
+
 function genPDFFactura({
   doc,
   cliente,
@@ -2605,7 +2799,7 @@ function App() {
   const [proyectos, setProyectos] = useState([]);
   const [registros, setRegistros] = useState([]);
   const [concs, setConcs] = useState([]);
-  const [trabs, setTrabs] = useState(["Daniel", "Jordi Santos", "Yennyfer Lemus", "Técnico NorAcua"]);
+  const [trabs, setTrabs] = useState(["Daniel", "Jordi Santos", "Yennyfer Lemus", "Técnico NorAcua", "Carlos García"]);
   // FIX #11: responsables con sexo
   const [resps, setResps] = useState([{
     nombre: "Concepción Gutierrez",
@@ -2622,6 +2816,21 @@ function App() {
   const [ofertas, setOfertas] = useState([]);
   const safeOfertas = () => Array.isArray(ofertas) ? ofertas : [];
   const [cfgOfertas, setCfgOfertas] = useState(CFG_OFERTAS_DEF);
+  // HSSE v2.5
+  const [hsseSups, setHsseSups] = useState([]);
+  const [hsseHist, setHsseHist] = useState([]);
+  const [hsseCfg, setHsseCfg] = useState({tiposActividad:["Obra menor mantenimiento","Itinerante","Obra menor","Obra mayor"],preciosPorZona:{CENTRO:0,NORTE:0,"CATALUÑA":0,BALEARES:0,OTROS:0},tecnicosExternos:[],poAnual:"",clienteIdBP:""});
+  const [viewH, setViewH] = useState("registro");
+  const [filtroHS, setFiltroHS] = useState("");
+  const [filtroHTrab, setFiltroHTrab] = useState("");
+  const [filtroHDesde, setFiltroHDesde] = useState("");
+  const [filtroHHasta, setFiltroHHasta] = useState("");
+  const [mHsseReg, setMHsseReg] = useState(false);
+  const [mHssePrev, setMHssePrev] = useState(null);
+  const [mHsseEdit, setMHsseEdit] = useState(null);
+  const [fInfH, setFInfH] = useState({desde:"",hasta:"",trab:""});
+  const eHS = {site:"",tipoActividad:"",pctAuditoria:"",obraConSupervision:"",fecha:today(),horas:"",supervisor:"",encargo:"",zona:"",incidencias:"",motivoSupervision:"",empresa:"",comentarios:""};
+  const [fHs, setFHs] = useState({...{site:"",tipoActividad:"",pctAuditoria:"",obraConSupervision:"",horas:"",supervisor:"",encargo:"",zona:"",incidencias:"",motivoSupervision:"",empresa:"",comentarios:""},fecha:today()});
   const [modulo, setModulo] = useState("trabajos");
   const [view, setView] = useState("registro");
   const [viewF, setViewF] = useState("lista");
@@ -2753,13 +2962,13 @@ function App() {
         }]));
         setUsrs(merged);
         setHashesReady(true);
-        const [p, r, t, rs, h, cl, se, fa, es, of, co] = await Promise.all([ld(SK.proj, []), ld(SK.regs, []), ld(SK.trabs, ["Daniel", "Jordi Santos", "Yennyfer Lemus", "Técnico NorAcua"]), ld(SK.resps, [{
+        const [p, r, t, rs, h, cl, se, fa, es, of, co, hsSup, hsCfg] = await Promise.all([ld(SK.proj, []), ld(SK.regs, []), ld(SK.trabs, ["Daniel", "Jordi Santos", "Yennyfer Lemus", "Técnico NorAcua", "Carlos García"]), ld(SK.resps, [{
           nombre: "Concepción Gutierrez",
           sexo: "F"
         }, {
           nombre: "Daniel Romero",
           sexo: "M"
-        }]), ld(SK.hist, []), ld(SK.clientes, CLIENTES_DEF), ld(SK.series, SERIES_DEF), ld(SK.facturas, []), ld(SK.estaciones, []), ld(SK.ofertas, []).then(v => Array.isArray(v) ? v : Object.values(v || {})), ld(SK.cfgOfertas, CFG_OFERTAS_DEF)]);
+        }]), ld(SK.hist, []), ld(SK.clientes, CLIENTES_DEF), ld(SK.series, SERIES_DEF), ld(SK.facturas, []), ld(SK.estaciones, []), ld(SK.ofertas, []).then(v => Array.isArray(v) ? v : Object.values(v || {})), ld(SK.cfgOfertas, CFG_OFERTAS_DEF), ld(SK.hsseSups, []), ld(SK.hsseCfg, {tiposActividad:["Obra menor mantenimiento","Itinerante","Obra menor","Obra mayor"],preciosPorZona:{CENTRO:0,NORTE:0,"CATALUÑA":0,BALEARES:0,OTROS:0},tecnicosExternos:[],poAnual:"",clienteIdBP:""})]);
         setProyectos(p);
         setRegistros(r);
         setTrabs(t);
@@ -2784,6 +2993,8 @@ function App() {
         setEstaciones(es);
         setOfertas(of);
         setCfgOfertas(co);
+        if(Array.isArray(hsSup))setHsseSups(hsSup);
+        if(hsCfg&&typeof hsCfg==="object"){const {hist:_h,...cfgRest}=hsCfg;setHsseCfg(c=>({...c,...cfgRest}));if(Array.isArray(_h))setHsseHist(_h);}
       } catch (e) {
         console.error(e);
         setHashesReady(true);
@@ -2869,6 +3080,8 @@ function App() {
   useEffect(() => {
     if (!loading) sv(SK.cfgOfertas, cfgOfertas);
   }, [cfgOfertas, loading]);
+  useEffect(()=>{if(!loading)sv(SK.hsseSups,hsseSups);},[hsseSups,loading]);
+  useEffect(()=>{if(!loading)sv(SK.hsseCfg,Object.assign({},hsseCfg,{hist:hsseHist}));},[hsseCfg,hsseHist,loading]);
   const saveConcs = async arr => {
     setConcs(arr);
     await sv(SK.cActivos, arr.map(c => ({id: c.id, activo: c.activo !== false})));
@@ -3953,7 +4166,11 @@ function App() {
     k: "ofertas",
     l: "Ofertas",
     i: P.offer
-  }] : [])];
+  }] : []), {
+    k: "hsse",
+    l: "HSSE",
+    i: P.eye
+  }];
   if (fase === "login" || !user) {
     return /*#__PURE__*/React.createElement("div", {
       style: {
@@ -4044,10 +4261,11 @@ function App() {
       }
     }, hashesReady ? "Acceder" : "Preparando...")));
   }
-  const curNav = modulo === "trabajos" ? navTrabajos : modulo === "facturacion" ? navFact : isAdmin ? navOfertas : navOfertasTec;
-  const curView = modulo === "trabajos" ? view : modulo === "facturacion" ? viewF : viewO;
+  const navHsse = [{k:"registro",l:"Registro",i:P.clip},{k:"revision",l:"Revisión",i:P.eye},{k:"informes",l:"Informes",i:P.file},{k:"config",l:"Config",i:P.cog}];
+  const curNav = modulo === "trabajos" ? navTrabajos : modulo === "facturacion" ? navFact : modulo === "hsse" ? navHsse : isAdmin ? navOfertas : navOfertasTec;
+  const curView = modulo === "trabajos" ? view : modulo === "facturacion" ? viewF : modulo === "hsse" ? viewH : viewO;
   const setCurView = v => {
-    if (modulo === "trabajos") setView(v);else if (modulo === "facturacion") {
+    if (modulo === "trabajos") setView(v);else if (modulo === "hsse") setViewH(v);else if (modulo === "facturacion") {
       setViewF(v);
       if (v !== "editor") setEditDoc(null);
     } else {
@@ -5446,6 +5664,15 @@ function App() {
     label: t,
     onDel: () => delTr(t)
   })))), /*#__PURE__*/React.createElement(Sec, {
+    title: "Precio Supervisión HSSE (€/hora)"
+  }, ["CENTRO","NORTE","CATALUÑA","BALEARES","OTROS"].map(z => React.createElement("div", {key:z, style:{display:"flex",alignItems:"center",gap:10,marginBottom:7}},
+    React.createElement("span", {style:{fontSize:12,fontWeight:600,width:100,flexShrink:0}}, z),
+    React.createElement("input", {type:"number", min:"0", step:"0.01",
+      value: hsseCfg.preciosPorZona&&hsseCfg.preciosPorZona[z]!=null ? hsseCfg.preciosPorZona[z] : "",
+      onChange: e => setHsseCfg(c => ({...c, preciosPorZona:{...(c.preciosPorZona||{}), [z]: Number(e.target.value)||0}})),
+      style:{width:100,padding:"4px 8px",border:"1px solid #dde2e8",borderRadius:5,fontSize:12,fontFamily:"inherit",background:"#f9fafb",outline:"none"}}),
+    React.createElement("span", {style:{fontSize:11,color:"#8a9199"}}, "€/hora")
+  ))), /*#__PURE__*/React.createElement(Sec, {
     title: "Responsables de cliente",
     action: /*#__PURE__*/React.createElement(Btn, {
       sm: true,
@@ -9985,7 +10212,433 @@ function App() {
   }, /*#__PURE__*/React.createElement(Ic, {
     d: P.dl,
     sz: 12
-  }), " Descargar"))))), showBuzon && isAdmin && /*#__PURE__*/React.createElement("div", {
+  }), " Descargar"))))),
+  modulo === "hsse" && React.createElement(React.Fragment, null,
+    /* HSSE sub-nav */
+    React.createElement("div", {style:{display:"flex",gap:4,marginBottom:12,background:"#fff",borderRadius:8,padding:4,border:"1px solid #dde2e8"}},
+      [{k:"registro",l:"Registro"},{k:"revision",l:"Revisión"},{k:"informes",l:"Informes HSSE"},{k:"config",l:"Config HSSE"}].map(function(t){
+        return React.createElement("button",{key:t.k,onClick:function(){setViewH(t.k);},style:{flex:1,padding:"5px 8px",borderRadius:5,border:"none",cursor:"pointer",fontSize:11,fontWeight:600,background:viewH===t.k?"#00c8c8":"transparent",color:viewH===t.k?"#fff":"#555e66"}},t.l);
+      })
+    ),
+    /* REGISTRO */
+    viewH==="registro" && React.createElement(React.Fragment, null,
+      React.createElement("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}},
+        React.createElement("h2",{style:{fontSize:17,fontWeight:700}},"Supervisiones HSSE"),
+        React.createElement("button",{onClick:function(){setFHs({site:"",tipoActividad:"",pctAuditoria:"",obraConSupervision:"",fecha:today(),horas:"",supervisor:"",encargo:"",zona:"",incidencias:"No",motivoSupervision:"",empresa:"",comentarios:""});setMHsseReg(true);},style:{background:"#00c8c8",color:"#fff",border:"none",borderRadius:6,padding:"6px 14px",cursor:"pointer",fontSize:12,fontWeight:600}},"\uFF0B Nueva supervisión")
+      ),
+      /* Filtros */
+      React.createElement("div",{style:{display:"flex",gap:7,marginBottom:11,flexWrap:"wrap"}},
+        React.createElement("select",{value:filtroHS,onChange:function(e){setFiltroHS(e.target.value);},style:{padding:"5px 9px",border:"1px solid #dde2e8",borderRadius:5,fontSize:11,fontFamily:"inherit",background:"#f9fafb"}},
+          React.createElement("option",{value:""},"Todos estados"),
+          React.createElement("option",{value:"pendiente"},"Pendiente"),
+          React.createElement("option",{value:"aprobado"},"Aprobado"),
+          React.createElement("option",{value:"anulado"},"Anulado")
+        ),
+        React.createElement("select",{value:filtroHTrab,onChange:function(e){setFiltroHTrab(e.target.value);},style:{padding:"5px 9px",border:"1px solid #dde2e8",borderRadius:5,fontSize:11,fontFamily:"inherit",background:"#f9fafb"}},
+          React.createElement("option",{value:""},"Todos técnicos"),
+          trabs.concat(hsseCfg.tecnicosExternos||[]).map(function(t){return React.createElement("option",{key:t,value:t},t);})
+        ),
+        React.createElement("input",{type:"date",value:filtroHDesde,onChange:function(e){setFiltroHDesde(e.target.value);},placeholder:"Desde",style:{padding:"5px 9px",border:"1px solid #dde2e8",borderRadius:5,fontSize:11,fontFamily:"inherit",background:"#f9fafb"}}),
+        React.createElement("input",{type:"date",value:filtroHHasta,onChange:function(e){setFiltroHHasta(e.target.value);},placeholder:"Hasta",style:{padding:"5px 9px",border:"1px solid #dde2e8",borderRadius:5,fontSize:11,fontFamily:"inherit",background:"#f9fafb"}})
+      ),
+      /* Lista */
+      hsseSups.filter(function(s){
+        if(filtroHS&&s.estado!==filtroHS)return false;
+        if(filtroHTrab&&s.supervisor!==filtroHTrab)return false;
+        if(filtroHDesde&&s.fecha<filtroHDesde)return false;
+        if(filtroHHasta&&s.fecha>filtroHHasta)return false;
+        return true;
+      }).sort(function(a,b){return(b.fecha||"").localeCompare(a.fecha||"");}).map(function(s){
+        var eCol=s.estado==="aprobado"?"#1a9e7a":s.estado==="anulado"?"#d03030":"#d48a10";
+        var eLab=s.estado==="aprobado"?"Aprobado":s.estado==="anulado"?"Anulado":"Pendiente";
+        var precio=hsseCfg.preciosPorZona&&hsseCfg.preciosPorZona[s.zona]?hsseCfg.preciosPorZona[s.zona]:0;
+        var importe=Number(s.horasAdmin||s.horas||0)*precio;
+        return React.createElement("div",{key:s.id,style:{background:"#fff",borderRadius:10,border:"1px solid #dde2e8",padding:"10px 14px",marginBottom:8}},
+          React.createElement("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8}},
+            React.createElement("div",{style:{flex:1}},
+              React.createElement("div",{style:{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap",marginBottom:3}},
+                React.createElement("span",{style:{fontWeight:700,fontSize:13}},s.site||"Sin site"),
+                React.createElement("span",{style:{fontSize:11,color:"#8a9199"}},"·"),
+                React.createElement("span",{style:{fontSize:12,color:"#555e66"}},s.tipoActividad||"—"),
+                s.estado==="anulado"&&React.createElement("span",{style:{fontSize:10,fontWeight:700,color:"#d03030",background:"rgba(208,48,48,0.10)",padding:"1px 6px",borderRadius:10}},"ANULADO")
+              ),
+              React.createElement("div",{style:{fontSize:11,color:"#8a9199",display:"flex",gap:8,flexWrap:"wrap"}},
+                React.createElement("span",null,fmtD(s.fecha)),
+                s.supervisor&&React.createElement("span",null,"· "+s.supervisor),
+                s.zona&&React.createElement("span",null,"· "+s.zona),
+                React.createElement("span",null,"· "+(s.horasAdmin||s.horas||"—")+"h"),
+                precio>0&&React.createElement("span",{style:{color:"#1a9e7a",fontWeight:600}},"· "+fmtE(importe)),
+                s.incidencias==="Sí"&&React.createElement("span",{style:{color:"#d03030",fontWeight:600}},"⚠ Incidencia")
+              )
+            ),
+            React.createElement("div",{style:{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:4}},
+              React.createElement("span",{style:{fontSize:10,fontWeight:700,color:eCol,background:eCol+"22",padding:"2px 7px",borderRadius:10}},eLab),
+              React.createElement("div",{style:{display:"flex",gap:4}},
+                React.createElement("button",{onClick:function(){setMHsseEdit(Object.assign({},s));},style:{background:"transparent",border:"1px solid #dde2e8",borderRadius:5,padding:"3px 8px",cursor:"pointer",fontSize:11}},"✎ Editar"),
+                s.estado!=="anulado"&&React.createElement("button",{onClick:function(){if(window.confirm("¿Anular esta supervisión?"))setHsseSups(function(p){return p.map(function(x){return x.id===s.id?Object.assign({},x,{estado:"anulado"}):x;});});},style:{background:"transparent",border:"1px solid #d03030",borderRadius:5,padding:"3px 8px",cursor:"pointer",fontSize:11,color:"#d03030"}},"Anular"),
+                s.estado==="anulado"&&React.createElement("button",{onClick:function(){if(window.confirm("¿Eliminar?"))setHsseSups(function(p){return p.filter(function(x){return x.id!==s.id;});});},style:{background:"transparent",border:"1px solid #d03030",borderRadius:5,padding:"3px 8px",cursor:"pointer",fontSize:11,color:"#d03030"}},"🗑")
+              )
+            )
+          ),
+          (s.motivoSupervision||s.empresa||s.comentarios)&&React.createElement("div",{style:{marginTop:7,paddingTop:7,borderTop:"1px solid #dde2e8",fontSize:11,color:"#555e66",display:"flex",gap:12,flexWrap:"wrap"}},
+            s.motivoSupervision&&React.createElement("span",null,"Motivo: "+s.motivoSupervision),
+            s.empresa&&React.createElement("span",null,"Empresa: "+s.empresa),
+            s.comentarios&&React.createElement("span",null,"Comentarios: "+s.comentarios)
+          )
+        );
+      }),
+      hsseSups.length===0&&React.createElement("div",{style:{textAlign:"center",padding:30,color:"#8a9199"}},"No hay supervisiones HSSE registradas.")
+    ),
+    /* REVISIÓN */
+    viewH==="revision" && React.createElement(React.Fragment, null,
+      React.createElement("h2",{style:{fontSize:17,fontWeight:700,marginBottom:12}},"Revisión HSSE"),
+      React.createElement("div",{style:{display:"flex",gap:7,marginBottom:11,flexWrap:"wrap"}},
+        React.createElement("select",{value:filtroHTrab,onChange:function(e){setFiltroHTrab(e.target.value);},style:{padding:"5px 9px",border:"1px solid #dde2e8",borderRadius:5,fontSize:11,fontFamily:"inherit",background:"#f9fafb"}},
+          React.createElement("option",{value:""},"Todos técnicos"),
+          trabs.concat(hsseCfg.tecnicosExternos||[]).map(function(t){return React.createElement("option",{key:t,value:t},t);})
+        ),
+        React.createElement("select",{value:filtroHS,onChange:function(e){setFiltroHS(e.target.value);},style:{padding:"5px 9px",border:"1px solid #dde2e8",borderRadius:5,fontSize:11,fontFamily:"inherit",background:"#f9fafb"}},
+          React.createElement("option",{value:""},"Todos estados"),
+          React.createElement("option",{value:"pendiente"},"Pendiente"),
+          React.createElement("option",{value:"aprobado"},"Aprobado")
+        )
+      ),
+      hsseSups.filter(function(s){
+        if(s.estado==="anulado")return false;
+        if(filtroHTrab&&s.supervisor!==filtroHTrab)return false;
+        if(filtroHS&&s.estado!==filtroHS)return false;
+        return true;
+      }).sort(function(a,b){return(b.fecha||"").localeCompare(a.fecha||"");}).map(function(s){
+        var precio=hsseCfg.preciosPorZona&&hsseCfg.preciosPorZona[s.zona]?hsseCfg.preciosPorZona[s.zona]:0;
+        var importe=Number(s.horasAdmin||s.horas||0)*precio;
+        return React.createElement("div",{key:s.id,style:{background:"#fff",borderRadius:10,border:"1px solid #dde2e8",padding:"12px 14px",marginBottom:8}},
+          React.createElement("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8,marginBottom:8}},
+            React.createElement("div",null,
+              React.createElement("div",{style:{fontWeight:700,fontSize:13}},s.site||"Sin site"),
+              React.createElement("div",{style:{fontSize:11,color:"#8a9199",display:"flex",gap:8,marginTop:2,flexWrap:"wrap"}},
+                React.createElement("span",null,s.tipoActividad||"—"),
+                React.createElement("span",null,"· "+fmtD(s.fecha)),
+                s.supervisor&&React.createElement("span",null,"· "+s.supervisor),
+                s.zona&&React.createElement("span",null,"· "+s.zona)
+              )
+            ),
+            React.createElement("span",{style:{fontSize:10,fontWeight:700,color:s.estado==="aprobado"?"#1a9e7a":"#d48a10",background:s.estado==="aprobado"?"rgba(26,158,122,0.10)":"rgba(212,138,16,0.10)",padding:"2px 7px",borderRadius:10}},s.estado==="aprobado"?"Aprobado":"Pendiente")
+          ),
+          React.createElement("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:8}},
+            React.createElement("div",null,
+              React.createElement("div",{style:{fontSize:10,color:"#8a9199",marginBottom:2}},"Horas técnico"),
+              React.createElement("div",{style:{fontSize:13,fontWeight:600}},s.horas||"—")
+            ),
+            React.createElement("div",null,
+              React.createElement("div",{style:{fontSize:10,color:"#8a9199",marginBottom:2}},"Horas a facturar (admin)"),
+              React.createElement("input",{type:"number",min:"0",step:"0.5",value:s.horasAdmin!=null?s.horasAdmin:s.horas||"",onChange:function(e){var v=e.target.value;setHsseSups(function(p){return p.map(function(x){return x.id===s.id?Object.assign({},x,{horasAdmin:v}):x;});});},style:{width:"100%",padding:"4px 8px",border:"1px solid #dde2e8",borderRadius:5,fontSize:12,fontFamily:"inherit",background:"#f9fafb",outline:"none"}})
+            ),
+            React.createElement("div",null,
+              React.createElement("div",{style:{fontSize:10,color:"#8a9199",marginBottom:2}},"Importe est."),
+              React.createElement("div",{style:{fontSize:13,fontWeight:700,color:"#1a9e7a"}},precio>0?fmtE(importe):"Sin precio/zona")
+            )
+          ),
+          s.pctAuditoria&&React.createElement("div",{style:{fontSize:11,color:"#8a9199",marginBottom:6}},"\u25B8 % Auditoría: "+s.pctAuditoria+"%"),
+          (s.motivoSupervision||s.empresa||s.comentarios)&&React.createElement("div",{style:{fontSize:11,color:"#555e66",display:"flex",gap:12,flexWrap:"wrap",marginBottom:8,paddingTop:6,borderTop:"1px solid #dde2e8"}},
+            s.motivoSupervision&&React.createElement("span",null,"Motivo: "+s.motivoSupervision),
+            s.empresa&&React.createElement("span",null,"Empresa: "+s.empresa),
+            s.comentarios&&React.createElement("span",null,"Comentarios: "+s.comentarios)
+          ),
+          React.createElement("div",{style:{display:"flex",gap:6}},
+            s.estado!=="aprobado"&&React.createElement("button",{onClick:function(){setHsseSups(function(p){return p.map(function(x){return x.id===s.id?Object.assign({},x,{estado:"aprobado"}):x;});});},style:{background:"#1a9e7a",color:"#fff",border:"none",borderRadius:5,padding:"4px 12px",cursor:"pointer",fontSize:11,fontWeight:600}},"✓ Aprobar"),
+            s.estado==="aprobado"&&React.createElement("button",{onClick:function(){setHsseSups(function(p){return p.map(function(x){return x.id===s.id?Object.assign({},x,{estado:"pendiente"}):x;});});},style:{background:"transparent",border:"1px solid #d48a10",borderRadius:5,padding:"4px 12px",cursor:"pointer",fontSize:11,color:"#d48a10"}},"↩ Revertir"),
+            React.createElement("button",{onClick:function(){if(window.confirm("¿Anular?"))setHsseSups(function(p){return p.map(function(x){return x.id===s.id?Object.assign({},x,{estado:"anulado"}):x;});});},style:{background:"transparent",border:"1px solid #d03030",borderRadius:5,padding:"4px 12px",cursor:"pointer",fontSize:11,color:"#d03030"}},"Anular")
+          )
+        );
+      })
+    ),
+    /* INFORMES HSSE */
+    viewH==="informes" && React.createElement(React.Fragment, null,
+      React.createElement("div",{style:{display:"flex",gap:6,marginBottom:14}},
+        React.createElement("button",{onClick:function(){},style:{background:"#00c8c8",color:"#fff",border:"none",borderRadius:5,padding:"5px 14px",cursor:"pointer",fontSize:11,fontWeight:600}},"Nuevo informe"),
+        React.createElement("button",{onClick:function(){setViewH("hssehist");},style:{background:"transparent",border:"1px solid #dde2e8",borderRadius:5,padding:"5px 14px",cursor:"pointer",fontSize:11,fontWeight:600,color:"#555e66"}},"Hist\u00F3rico ("+hsseHist.length+")")
+      ),
+      React.createElement("h2",{style:{fontSize:17,fontWeight:700,marginBottom:14}},"Generar informe HSSE"),
+      React.createElement("div",{style:{background:"#fff",borderRadius:10,border:"1px solid #dde2e8",padding:20,maxWidth:580}},
+        React.createElement("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:9}},
+          React.createElement("div",null,
+            React.createElement("div",{style:{fontSize:11,color:"#555e66",marginBottom:4,fontWeight:600}},"Fecha desde *"),
+            React.createElement("input",{type:"date",value:fInfH.desde,onChange:function(e){setFInfH(function(f){return Object.assign({},f,{desde:e.target.value});});},style:{width:"100%",padding:"6px 10px",border:"1px solid #dde2e8",borderRadius:5,fontSize:12,fontFamily:"inherit",background:"#f9fafb",outline:"none"}})
+          ),
+          React.createElement("div",null,
+            React.createElement("div",{style:{fontSize:11,color:"#555e66",marginBottom:4,fontWeight:600}},"Fecha hasta *"),
+            React.createElement("input",{type:"date",value:fInfH.hasta,onChange:function(e){setFInfH(function(f){return Object.assign({},f,{hasta:e.target.value});});},style:{width:"100%",padding:"6px 10px",border:"1px solid #dde2e8",borderRadius:5,fontSize:12,fontFamily:"inherit",background:"#f9fafb",outline:"none"}})
+          )
+        ),
+        React.createElement("div",{style:{marginTop:9}},
+          React.createElement("div",{style:{fontSize:11,color:"#555e66",marginBottom:4,fontWeight:600}},"Técnico (opcional)"),
+          React.createElement("select",{value:fInfH.trab||"",onChange:function(e){setFInfH(function(f){return Object.assign({},f,{trab:e.target.value});});},style:{width:"100%",padding:"6px 10px",border:"1px solid #dde2e8",borderRadius:5,fontSize:12,fontFamily:"inherit",background:"#f9fafb"}},
+            React.createElement("option",{value:""},"Todos los técnicos"),
+            trabs.concat(hsseCfg.tecnicosExternos||[]).map(function(t){return React.createElement("option",{key:t,value:t},t);})
+          )
+        ),
+        React.createElement("div",{style:{marginTop:9}},
+          React.createElement("div",{style:{fontSize:11,color:"#555e66",marginBottom:4,fontWeight:600}},"PO"),
+          React.createElement("input",{value:hsseCfg.poAnual||"",onChange:function(e){setHsseCfg(function(c){return Object.assign({},c,{poAnual:e.target.value});});},style:{width:"100%",padding:"6px 10px",border:"1px solid #dde2e8",borderRadius:5,fontSize:12,fontFamily:"inherit",background:"#f9fafb",outline:"none"}})
+        ),
+        fInfH.desde&&fInfH.hasta&&(function(){
+          var sups=hsseSups.filter(function(s){
+            if(s.estado!=="aprobado")return false;
+            if(fInfH.trab&&s.supervisor!==fInfH.trab)return false;
+            return s.fecha>=fInfH.desde&&s.fecha<=fInfH.hasta;
+          });
+          var totalH=sups.reduce(function(a,s){return a+Number(s.horasAdmin||s.horas||0);},0);
+          var totalE=sups.reduce(function(a,s){var p=hsseCfg.preciosPorZona&&hsseCfg.preciosPorZona[s.zona]?hsseCfg.preciosPorZona[s.zona]:0;return a+Number(s.horasAdmin||s.horas||0)*p;},0);
+          return React.createElement("div",{style:{fontSize:11,color:"#8a9199",margin:"10px 0"}},sups.length+" supervisiones · "+totalH+"h · ",React.createElement("strong",{style:{color:"#1a1a1a"}},fmtE(totalE)));
+        })(),
+        React.createElement("button",{
+          disabled:!fInfH.desde||!fInfH.hasta,
+          onClick:function(){
+            if(!fInfH.desde||!fInfH.hasta){alert("Selecciona fechas.");return;}
+            var sups=hsseSups.filter(function(s){
+              if(s.estado!=="aprobado")return false;
+              if(fInfH.trab&&s.supervisor!==fInfH.trab)return false;
+              return s.fecha>=fInfH.desde&&s.fecha<=fInfH.hasta;
+            });
+            if(!sups.length){alert("No hay supervisiones aprobadas en este período.");return;}
+            var po=hsseCfg.poAnual||"";
+            var fmtD2=function(d){return d?d.replace(/-/g,"").substring(2):"";};
+            var nom="HSSE-INF-"+(fInfH.trab?fInfH.trab.replace(/\s+/g,"-")+"-":"")+"("+fmtD2(fInfH.desde)+"-"+fmtD2(fInfH.hasta)+")";
+            var html=genInfHSSE({sups:sups,desde:fInfH.desde,hasta:fInfH.hasta,po:po,hsseCfg:hsseCfg,trabs:trabs});
+            setMHssePrev({html:html,nom:nom,desde:fInfH.desde,hasta:fInfH.hasta,sups:sups,po:po,readonly:false});
+          },
+          style:{background:!fInfH.desde||!fInfH.hasta?"#ccc":"#00c8c8",color:"#fff",border:"none",borderRadius:6,padding:"7px 16px",cursor:!fInfH.desde||!fInfH.hasta?"not-allowed":"pointer",fontSize:12,fontWeight:600,marginTop:10}
+        },"⬇ Previsualizar informe")
+      ),
+        React.createElement("div",{style:{fontSize:11,color:"#8a9199",marginTop:8,padding:"8px 12px",background:"#f0f4f8",borderRadius:6,border:"1px solid #dde2e8"}},
+          "ℹ El informe se descarga como HTML para imprimir/enviar a BP para aprobación. Una vez aprobado, usa el botón de facturación."
+        )
+    ),
+    /* HISTORICO INFORMES HSSE */
+    viewH==="hssehist" && React.createElement(React.Fragment, null,
+      React.createElement("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}},
+        React.createElement("h2",{style:{fontSize:17,fontWeight:700}},"Hist\u00F3rico de informes HSSE"),
+        React.createElement("button",{onClick:function(){setViewH("informes");},style:{background:"#00c8c8",color:"#fff",border:"none",borderRadius:6,padding:"6px 14px",cursor:"pointer",fontSize:12,fontWeight:600}},"＋ Nuevo informe")
+      ),
+      hsseHist.length===0&&React.createElement("div",{style:{textAlign:"center",padding:30,color:"#8a9199"}},"No hay informes guardados."),
+      React.createElement("div",{style:{display:"flex",flexDirection:"column",gap:8}},
+        hsseHist.map(function(inf){
+          return React.createElement("div",{key:inf.id,style:{background:"#fff",borderRadius:10,border:"1px solid #dde2e8",padding:"10px 14px",display:"flex",justifyContent:"space-between",alignItems:"center",gap:8}},
+            React.createElement("div",null,
+              React.createElement("div",{style:{fontWeight:700,fontSize:13}},inf.nom),
+              React.createElement("div",{style:{fontSize:11,color:"#8a9199",marginTop:2}},inf.periodo+(inf.po?" · PO: "+inf.po:"")+" · "+inf.numSups+" supervisiones · "+inf.totalHoras+"h")
+            ),
+            React.createElement("div",{style:{display:"flex",gap:6}},
+              React.createElement("button",{onClick:function(){setMHssePrev({html:inf.html,nom:inf.nom,readonly:true});},style:{background:"transparent",border:"1px solid #dde2e8",borderRadius:5,padding:"3px 8px",cursor:"pointer",fontSize:11}},"Ver"),
+              React.createElement("button",{onClick:function(){abrirPDF(inf.html,inf.nom);},style:{background:"transparent",border:"1px solid #dde2e8",borderRadius:5,padding:"3px 8px",cursor:"pointer",fontSize:11}},"⬇ Descargar"),
+              React.createElement("button",{onClick:function(){if(window.confirm("\u00BFEliminar este informe?"))setHsseHist(function(p){return p.filter(function(x){return x.id!==inf.id;});});},style:{background:"transparent",border:"1px solid #d03030",borderRadius:5,padding:"3px 8px",cursor:"pointer",fontSize:11,color:"#d03030"}},"Eliminar")
+            )
+          );
+        })
+      )
+    ),
+    mHssePrev && React.createElement("div",{style:{position:"fixed",inset:0,zIndex:1100,background:"rgba(0,0,0,0.55)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:20}},
+      React.createElement("div",{style:{background:"#fff",borderRadius:12,width:"96%",maxWidth:1100,maxHeight:"92vh",display:"flex",flexDirection:"column",boxShadow:"0 0 0 1px #dde2e8,0 24px 64px rgba(0,0,0,0.18)"}},
+        React.createElement("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"14px 18px",borderBottom:"1px solid #dde2e8"}},
+          React.createElement("div",{style:{fontWeight:700,fontSize:14}},mHssePrev.nom),
+          React.createElement("div",{style:{display:"flex",gap:8,alignItems:"center"}},
+            !mHssePrev.readonly&&React.createElement("div",{style:{display:"flex",gap:6,alignItems:"center"}},
+              React.createElement("input",{id:"hsse-nom-inp",defaultValue:mHssePrev.nom,style:{padding:"5px 10px",border:"1px solid #dde2e8",borderRadius:5,fontSize:12,fontFamily:"inherit",width:300,background:"#f9fafb",outline:"none"}}),
+              React.createElement("button",{
+                onClick:function(){
+                  var nomFinal=document.getElementById("hsse-nom-inp").value.trim()||mHssePrev.nom;
+                  var entry={id:"hinf_"+Date.now(),nom:nomFinal,html:mHssePrev.html,desde:mHssePrev.desde,hasta:mHssePrev.hasta,po:mHssePrev.po||"",periodo:fmtD(mHssePrev.desde)+" \u2192 "+fmtD(mHssePrev.hasta),numSups:mHssePrev.sups?mHssePrev.sups.length:0,totalHoras:mHssePrev.sups?mHssePrev.sups.reduce(function(a,s){return a+Number(s.horasAdmin||s.horas||0);},0):0,creadoEn:new Date().toISOString()};
+                  setHsseHist(function(p){return [entry].concat(p.slice(0,49));});
+                  setMHssePrev(null);
+                  setViewH("hssehist");
+                },
+                style:{background:"#00c8c8",color:"#fff",border:"none",borderRadius:5,padding:"5px 14px",cursor:"pointer",fontSize:12,fontWeight:600}
+              },"\u2713 Guardar en hist\u00F3rico")
+            ),
+            React.createElement("button",{onClick:function(){abrirPDF(mHssePrev.html,mHssePrev.nom);},style:{background:"transparent",border:"1px solid #dde2e8",borderRadius:5,padding:"5px 12px",cursor:"pointer",fontSize:12}},"⬇ Descargar"),
+            React.createElement("button",{onClick:function(){setMHssePrev(null);},style:{background:"transparent",border:"1px solid #dde2e8",borderRadius:5,padding:"5px 12px",cursor:"pointer",fontSize:12}},"Cerrar")
+          )
+        ),
+        React.createElement("iframe",{srcDoc:mHssePrev.html,style:{flex:1,border:"none",borderRadius:"0 0 12px 12px"},title:"preview"})
+      )
+    ),
+    /* CONFIG HSSE */
+    viewH==="config" && React.createElement(React.Fragment, null,
+      React.createElement("h2",{style:{fontSize:17,fontWeight:700,marginBottom:14}},"Configuración HSSE"),
+      /* Tipos actividad */
+      React.createElement("div",{style:{background:"#fff",borderRadius:10,border:"1px solid #dde2e8",padding:16,marginBottom:12}},
+        React.createElement("div",{style:{fontWeight:700,fontSize:13,marginBottom:10}},"Tipos de actividad"),
+        React.createElement("div",{style:{display:"flex",flexWrap:"wrap",gap:6,marginBottom:8}},
+          (hsseCfg.tiposActividad||[]).map(function(t,i){
+            return React.createElement("div",{key:i,style:{display:"flex",alignItems:"center",gap:5,padding:"4px 10px",background:"#f0f3f6",borderRadius:20,border:"1px solid #dde2e8",fontSize:11}},
+              React.createElement("span",null,t),
+              React.createElement("button",{onClick:function(){setHsseCfg(function(c){return Object.assign({},c,{tiposActividad:c.tiposActividad.filter(function(_,j){return j!==i;})});});},style:{background:"none",border:"none",cursor:"pointer",color:"#8a9199",padding:0,lineHeight:1,fontSize:14}},"×")
+            );
+          })
+        ),
+        React.createElement("div",{style:{display:"flex",gap:6}},
+          React.createElement("input",{id:"newTipoHsse",placeholder:"Nuevo tipo...",style:{flex:1,padding:"6px 10px",border:"1px solid #dde2e8",borderRadius:5,fontSize:11,fontFamily:"inherit",background:"#f9fafb",outline:"none"}}),
+          React.createElement("button",{onClick:function(){var el=document.getElementById("newTipoHsse");var v=el&&el.value&&el.value.trim();if(v&&!(hsseCfg.tiposActividad||[]).includes(v)){setHsseCfg(function(c){return Object.assign({},c,{tiposActividad:(c.tiposActividad||[]).concat([v])});});if(el)el.value="";}},style:{background:"#00c8c8",color:"#fff",border:"none",borderRadius:5,padding:"6px 12px",cursor:"pointer",fontSize:11,fontWeight:600}},"\uFF0B Añadir")
+        )
+      ),
+      /* Precio por hora por zona */
+      React.createElement("div",{style:{background:"#fff",borderRadius:10,border:"1px solid #dde2e8",padding:16,marginBottom:12}},
+        React.createElement("div",{style:{fontWeight:700,fontSize:13,marginBottom:10}},"Precio €/hora por zona"),
+        ["CENTRO","NORTE","CATALUÑA","BALEARES","OTROS"].map(function(z){
+          return React.createElement("div",{key:z,style:{display:"flex",alignItems:"center",gap:10,marginBottom:7}},
+            React.createElement("span",{style:{fontSize:12,fontWeight:600,width:100,flexShrink:0}},z),
+            React.createElement("input",{type:"number",min:"0",step:"0.01",value:hsseCfg.preciosPorZona&&hsseCfg.preciosPorZona[z]!=null?hsseCfg.preciosPorZona[z]:"",onChange:function(e){var val=Number(e.target.value)||0;setHsseCfg(function(c){var pz=Object.assign({},c.preciosPorZona||{});pz[z]=val;return Object.assign({},c,{preciosPorZona:pz});});},style:{width:120,padding:"5px 9px",border:"1px solid #dde2e8",borderRadius:5,fontSize:12,fontFamily:"inherit",background:"#f9fafb",outline:"none"}}),
+            React.createElement("span",{style:{fontSize:11,color:"#8a9199"}},"€/hora")
+          );
+        })
+      ),
+      /* PO anual */
+      React.createElement("div",{style:{background:"#fff",borderRadius:10,border:"1px solid #dde2e8",padding:16,marginBottom:12}},
+        React.createElement("div",{style:{fontWeight:700,fontSize:13,marginBottom:10}},"PO anual BP"),
+        React.createElement("input",{value:hsseCfg.poAnual||"",onChange:function(e){setHsseCfg(function(c){return Object.assign({},c,{poAnual:e.target.value});});},placeholder:"Número de PO...",style:{width:"100%",padding:"6px 10px",border:"1px solid #dde2e8",borderRadius:5,fontSize:12,fontFamily:"inherit",background:"#f9fafb",outline:"none"}})
+      ),
+      /* Cliente BP */
+      React.createElement("div",{style:{background:"#fff",borderRadius:10,border:"1px solid #dde2e8",padding:16,marginBottom:12}},
+        React.createElement("div",{style:{fontWeight:700,fontSize:13,marginBottom:10}},"Cliente BP España (facturación)"),
+        React.createElement("select",{value:hsseCfg.clienteIdBP||"",onChange:function(e){setHsseCfg(function(c){return Object.assign({},c,{clienteIdBP:e.target.value});});},style:{width:"100%",padding:"6px 10px",border:"1px solid #dde2e8",borderRadius:5,fontSize:12,fontFamily:"inherit",background:"#f9fafb"}},
+          React.createElement("option",{value:""},"Seleccionar cliente BP..."),
+          clientes.map(function(c){return React.createElement("option",{key:c.id,value:c.id},c.nombre);})
+        )
+      ),
+      /* Técnicos externos */
+      React.createElement("div",{style:{background:"#fff",borderRadius:10,border:"1px solid #dde2e8",padding:16,marginBottom:12}},
+        React.createElement("div",{style:{fontWeight:700,fontSize:13,marginBottom:10}},"Técnicos externos HSSE"),
+        React.createElement("div",{style:{display:"flex",flexWrap:"wrap",gap:6,marginBottom:8}},
+          (hsseCfg.tecnicosExternos||[]).map(function(t,i){
+            return React.createElement("div",{key:i,style:{display:"flex",alignItems:"center",gap:5,padding:"4px 10px",background:"#f0f3f6",borderRadius:20,border:"1px solid #dde2e8",fontSize:11}},
+              React.createElement("span",null,t),
+              React.createElement("button",{onClick:function(){setHsseCfg(function(c){return Object.assign({},c,{tecnicosExternos:c.tecnicosExternos.filter(function(_,j){return j!==i;})});});},style:{background:"none",border:"none",cursor:"pointer",color:"#8a9199",padding:0,lineHeight:1,fontSize:14}},"×")
+            );
+          })
+        ),
+        React.createElement("div",{style:{display:"flex",gap:6}},
+          React.createElement("input",{id:"newExtHsse",placeholder:"Nombre técnico externo...",style:{flex:1,padding:"6px 10px",border:"1px solid #dde2e8",borderRadius:5,fontSize:11,fontFamily:"inherit",background:"#f9fafb",outline:"none"}}),
+          React.createElement("button",{onClick:function(){var el=document.getElementById("newExtHsse");var v=el&&el.value&&el.value.trim();if(v){setHsseCfg(function(c){return Object.assign({},c,{tecnicosExternos:(c.tecnicosExternos||[]).concat([v])});});if(el)el.value="";}},style:{background:"#00c8c8",color:"#fff",border:"none",borderRadius:5,padding:"6px 12px",cursor:"pointer",fontSize:11,fontWeight:600}},"\uFF0B Añadir")
+        )
+      )
+    ),
+    /* MODAL NUEVA/EDITAR SUPERVISIÓN */
+    (mHsseReg||mHsseEdit) && React.createElement(Modal, {
+      open: true,
+      title: mHsseEdit?"Editar supervisión HSSE":"Nueva supervisión HSSE",
+      onClose:function(){setMHsseReg(false);setMHsseEdit(null);}
+    },
+      /* SITE */
+      React.createElement("div",{style:{marginBottom:9}},
+        React.createElement("div",{style:{fontSize:11,color:"#555e66",marginBottom:4,fontWeight:600}},"SITE (ES) *"),
+        React.createElement("div",{style:{display:"flex",gap:6}},
+          React.createElement("input",{list:"hsse-sites-dl",value:(mHsseEdit||fHs).site||"",onChange:function(e){var v=e.target.value;if(mHsseEdit)setMHsseEdit(function(x){return Object.assign({},x,{site:v});});else setFHs(function(x){return Object.assign({},x,{site:v});});},placeholder:"Buscar o escribir EESS...",style:{flex:1,padding:"6px 10px",border:"1px solid #dde2e8",borderRadius:5,fontSize:12,fontFamily:"inherit",background:"#f9fafb",outline:"none"}}),
+          React.createElement("datalist",{id:"hsse-sites-dl"},estaciones.map(function(e){return React.createElement("option",{key:e,value:e});})),
+          (mHsseEdit||fHs).site&&!estaciones.includes((mHsseEdit||fHs).site)&&React.createElement("button",{onClick:function(){var v=((mHsseEdit||fHs).site||"").trim();if(v&&!estaciones.includes(v))setEstaciones(function(p){return p.concat([v]).sort();});},style:{background:"#00c8c8",color:"#fff",border:"none",borderRadius:5,padding:"6px 10px",cursor:"pointer",fontSize:11,fontWeight:600,whiteSpace:"nowrap"}},"+ Añadir")
+        ),
+      
+      /* TIPO ACTIVIDAD */
+      React.createElement("div",{style:{marginBottom:9}},
+        React.createElement("div",{style:{fontSize:11,color:"#555e66",marginBottom:4,fontWeight:600}},"Tipo de actividad"),
+        React.createElement("select",{value:(mHsseEdit||fHs).tipoActividad||"",onChange:function(e){var v=e.target.value;if(mHsseEdit)setMHsseEdit(function(x){return Object.assign({},x,{tipoActividad:v});});else setFHs(function(x){return Object.assign({},x,{tipoActividad:v});});},style:{width:"100%",padding:"6px 10px",border:"1px solid #dde2e8",borderRadius:5,fontSize:12,fontFamily:"inherit",background:"#f9fafb"}},
+          React.createElement("option",{value:""},"Seleccionar tipo..."),
+          (hsseCfg.tiposActividad||[]).map(function(t){return React.createElement("option",{key:t,value:t},t);})
+        )
+      ),
+      /* Grid campos */
+      React.createElement("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:9}},
+        React.createElement("div",null,
+          React.createElement("div",{style:{fontSize:11,color:"#555e66",marginBottom:4,fontWeight:600}},"\uFF05 Auditoría"),
+          React.createElement("input",{type:"number",value:(mHsseEdit||fHs).pctAuditoria||"",onChange:function(e){var v=e.target.value;if(mHsseEdit)setMHsseEdit(function(x){return Object.assign({},x,{pctAuditoria:v});});else setFHs(function(x){return Object.assign({},x,{pctAuditoria:v});});},style:{width:"100%",padding:"6px 10px",border:"1px solid #dde2e8",borderRadius:5,fontSize:12,fontFamily:"inherit",background:"#f9fafb",outline:"none"}})
+        ),
+        React.createElement("div",null,
+          React.createElement("div",{style:{fontSize:11,color:"#555e66",marginBottom:4,fontWeight:600}},"¿Obra con supervisión?"),
+          React.createElement("select",{value:(mHsseEdit||fHs).obraConSupervision||"",onChange:function(e){var v=e.target.value;if(mHsseEdit)setMHsseEdit(function(x){return Object.assign({},x,{obraConSupervision:v});});else setFHs(function(x){return Object.assign({},x,{obraConSupervision:v});});},style:{width:"100%",padding:"6px 10px",border:"1px solid #dde2e8",borderRadius:5,fontSize:12,fontFamily:"inherit",background:"#f9fafb"}},
+            React.createElement("option",{value:""},"—"),
+            React.createElement("option",{value:"Sí"},"Sí"),
+            React.createElement("option",{value:"No"},"No")
+          )
+        ),
+        React.createElement("div",null,
+          React.createElement("div",{style:{fontSize:11,color:"#555e66",marginBottom:4,fontWeight:600}},"Fecha *"),
+          React.createElement("input",{type:"date",value:(mHsseEdit||fHs).fecha||"",onChange:function(e){var v=e.target.value;if(mHsseEdit)setMHsseEdit(function(x){return Object.assign({},x,{fecha:v});});else setFHs(function(x){return Object.assign({},x,{fecha:v});});},style:{width:"100%",padding:"6px 10px",border:"1px solid #dde2e8",borderRadius:5,fontSize:12,fontFamily:"inherit",background:"#f9fafb",outline:"none"}})
+        ),
+        React.createElement("div",null,
+          React.createElement("div",{style:{fontSize:11,color:"#555e66",marginBottom:4,fontWeight:600}},"Horas *"),
+          React.createElement("input",{type:"number",min:"0",step:"0.5",value:(mHsseEdit||fHs).horas||"",onChange:function(e){var v=e.target.value;if(mHsseEdit)setMHsseEdit(function(x){return Object.assign({},x,{horas:v});});else setFHs(function(x){return Object.assign({},x,{horas:v});});},style:{width:"100%",padding:"6px 10px",border:"1px solid #dde2e8",borderRadius:5,fontSize:12,fontFamily:"inherit",background:"#f9fafb",outline:"none"}})
+        )
+      ),
+      /* Supervisor */
+      React.createElement("div",{style:{marginTop:9,marginBottom:9}},
+        React.createElement("div",{style:{fontSize:11,color:"#555e66",marginBottom:4,fontWeight:600}},"Supervisor de seguridad"),
+        React.createElement("select",{value:(mHsseEdit||fHs).supervisor||"",onChange:function(e){var v=e.target.value;if(mHsseEdit)setMHsseEdit(function(x){return Object.assign({},x,{supervisor:v});});else setFHs(function(x){return Object.assign({},x,{supervisor:v});});},style:{width:"100%",padding:"6px 10px",border:"1px solid #dde2e8",borderRadius:5,fontSize:12,fontFamily:"inherit",background:"#f9fafb"}},
+          React.createElement("option",{value:""},"Seleccionar supervisor..."),
+          trabs.concat(hsseCfg.tecnicosExternos||[]).map(function(t){return React.createElement("option",{key:t,value:t},t);})
+        )
+      ),
+      /* Grid encargo/zona/incidencias */
+      React.createElement("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:9}},
+        React.createElement("div",null,
+          React.createElement("div",{style:{fontSize:11,color:"#555e66",marginBottom:4,fontWeight:600}},"Encargo trabajo"),
+          React.createElement("select",{value:(mHsseEdit||fHs).encargo||"",onChange:function(e){var v=e.target.value;if(mHsseEdit)setMHsseEdit(function(x){return Object.assign({},x,{encargo:v});});else setFHs(function(x){return Object.assign({},x,{encargo:v});});},style:{width:"100%",padding:"6px 10px",border:"1px solid #dde2e8",borderRadius:5,fontSize:12,fontFamily:"inherit",background:"#f9fafb"}},
+            React.createElement("option",{value:""},"—"),
+            resps.map(function(r){var n=typeof r==="object"?r.nombre:r;return React.createElement("option",{key:n,value:n},n);})
+          )
+        ),
+        React.createElement("div",null,
+          React.createElement("div",{style:{fontSize:11,color:"#555e66",marginBottom:4,fontWeight:600}},"Zona"),
+          React.createElement("select",{value:(mHsseEdit||fHs).zona||"",onChange:function(e){var v=e.target.value;if(mHsseEdit)setMHsseEdit(function(x){return Object.assign({},x,{zona:v});});else setFHs(function(x){return Object.assign({},x,{zona:v});});},style:{width:"100%",padding:"6px 10px",border:"1px solid #dde2e8",borderRadius:5,fontSize:12,fontFamily:"inherit",background:"#f9fafb"}},
+            React.createElement("option",{value:""},"—"),
+            ["CENTRO","NORTE","CATALUÑA","BALEARES","OTROS"].map(function(z){return React.createElement("option",{key:z,value:z},z);})
+          )
+        ),
+        React.createElement("div",null,
+          React.createElement("div",{style:{fontSize:11,color:"#555e66",marginBottom:4,fontWeight:600}},"Incidencias"),
+          React.createElement("select",{value:(mHsseEdit||fHs).incidencias||"No",onChange:function(e){var v=e.target.value;if(mHsseEdit)setMHsseEdit(function(x){return Object.assign({},x,{incidencias:v});});else setFHs(function(x){return Object.assign({},x,{incidencias:v});});},style:{width:"100%",padding:"6px 10px",border:"1px solid #dde2e8",borderRadius:5,fontSize:12,fontFamily:"inherit",background:"#f9fafb"}},
+            React.createElement("option",{value:"No"},"No"),
+            React.createElement("option",{value:"Sí"},"Sí")
+          )
+        )
+      ),
+      /* Textos libres */
+      React.createElement("div",{style:{marginTop:9}},
+        React.createElement("div",{style:{fontSize:11,color:"#555e66",marginBottom:4,fontWeight:600}},"Motivo supervisión"),
+        React.createElement("input",{value:(mHsseEdit||fHs).motivoSupervision||"",onChange:function(e){var v=e.target.value;if(mHsseEdit)setMHsseEdit(function(x){return Object.assign({},x,{motivoSupervision:v});});else setFHs(function(x){return Object.assign({},x,{motivoSupervision:v});});},style:{width:"100%",padding:"6px 10px",border:"1px solid #dde2e8",borderRadius:5,fontSize:12,fontFamily:"inherit",background:"#f9fafb",outline:"none"}})
+      ),
+      React.createElement("div",{style:{marginTop:9}},
+        React.createElement("div",{style:{fontSize:11,color:"#555e66",marginBottom:4,fontWeight:600}},"Empresa"),
+        React.createElement("input",{value:(mHsseEdit||fHs).empresa||"",onChange:function(e){var v=e.target.value;if(mHsseEdit)setMHsseEdit(function(x){return Object.assign({},x,{empresa:v});});else setFHs(function(x){return Object.assign({},x,{empresa:v});});},style:{width:"100%",padding:"6px 10px",border:"1px solid #dde2e8",borderRadius:5,fontSize:12,fontFamily:"inherit",background:"#f9fafb",outline:"none"}})
+      ),
+      React.createElement("div",{style:{marginTop:9}},
+        React.createElement("div",{style:{fontSize:11,color:"#555e66",marginBottom:4,fontWeight:600}},"Comentarios"),
+        React.createElement("input",{value:(mHsseEdit||fHs).comentarios||"",onChange:function(e){var v=e.target.value;if(mHsseEdit)setMHsseEdit(function(x){return Object.assign({},x,{comentarios:v});});else setFHs(function(x){return Object.assign({},x,{comentarios:v});});},style:{width:"100%",padding:"6px 10px",border:"1px solid #dde2e8",borderRadius:5,fontSize:12,fontFamily:"inherit",background:"#f9fafb",outline:"none"}})
+      ),
+      /* Botones */
+      React.createElement("div",{style:{display:"flex",gap:8,marginTop:14}},
+        React.createElement("button",{
+          onClick:function(){
+            var data=mHsseEdit||fHs;
+            var site=(data.site||"").trim();
+            if(!site||!data.fecha||!data.horas){alert("Site, fecha y horas son obligatorios.");return;}
+            if(site&&!estaciones.includes(site))setEstaciones(function(p){return p.concat([site]).sort();});
+            if(mHsseEdit){
+              var editId=mHsseEdit.id;
+              var saveData=Object.assign({},data,{site:site,horasOrig:data.horasOrig||data.horas,horasAdmin:data.horasAdmin!=null?data.horasAdmin:data.horas});
+              setHsseSups(function(p){return p.map(function(x){return x.id===editId?saveData:x;});});
+              setMHsseEdit(null);
+            } else {
+              setHsseSups(function(p){return [{site:site,tipoActividad:data.tipoActividad||"",pctAuditoria:data.pctAuditoria||"",obraConSupervision:data.obraConSupervision||"",fecha:data.fecha,horas:data.horas,horasOrig:data.horas,horasAdmin:data.horas,supervisor:data.supervisor||"",encargo:data.encargo||"",zona:data.zona||"",incidencias:data.incidencias||"No",motivoSupervision:data.motivoSupervision||"",empresa:data.empresa||"",comentarios:data.comentarios||"",id:"hs_"+Date.now(),estado:"pendiente",creadoPor:"admin",fechaCreacion:new Date().toISOString()}].concat(p);});
+              setFHs({site:"",tipoActividad:"",pctAuditoria:"",obraConSupervision:"",fecha:today(),horas:"",supervisor:"",encargo:"",zona:"",incidencias:"No",motivoSupervision:"",empresa:"",comentarios:""});
+              setMHsseReg(false);
+            }
+          },
+          style:{background:"#00c8c8",color:"#fff",border:"none",borderRadius:6,padding:"7px 16px",cursor:"pointer",fontSize:12,fontWeight:600}
+        },mHsseEdit?"Guardar cambios":"Crear supervisión"),
+        React.createElement("button",{onClick:function(){setMHsseReg(false);setMHsseEdit(null);},style:{background:"transparent",border:"1px solid #dde2e8",borderRadius:6,padding:"7px 16px",cursor:"pointer",fontSize:12}},"Cancelar")
+      )
+    )
+  ),
+  showBuzon && isAdmin && /*#__PURE__*/React.createElement("div", {
     style: {
       position: "fixed",
       top: 56,
@@ -10085,7 +10738,7 @@ function App() {
       fontSize: 10,
       color: C.muted
     }
-  }, "\xDAltimo acceso: ", new Date(lastLogin).toLocaleString("es-ES"))));
+  }, "\xDAltimo acceso: ", new Date(lastLogin).toLocaleString("es-ES")))));
 }
 
 
