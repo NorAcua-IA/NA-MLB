@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang='es'><head><meta charset='UTF-8'/><meta name='viewport' content='width=device-width,initial-scale=1.0'/><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"/><meta http-equiv="Pragma" content="no-cache"/><meta http-equiv="Expires" content="0"/><title>NorAcua Suite v2.5</title>
+<!DOCTYPE html><html lang='es'><head><meta charset='UTF-8'/><meta name='viewport' content='width=device-width,initial-scale=1.0'/><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"/><meta http-equiv="Pragma" content="no-cache"/><meta http-equiv="Expires" content="0"/><title>NorAcua Suite v2.6</title>
 <script src='https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js'></script>
 <script src='https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js'></script>
 <style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:'Segoe UI',-apple-system,sans-serif;background:#f4f6f8;}</style>
@@ -83,7 +83,7 @@ async function autoBackup(datos) {
     Object.keys(localStorage).filter(k => k.startsWith('na_autobk_na-backup-')).sort().reverse().slice(7).forEach(k => localStorage.removeItem(k));
   } catch(e) { console.warn('[NorAcua] autoBackup error:', e.message); }
 }
-const APP_VERSION = "2.5";
+const APP_VERSION = "2.6";
 if (typeof window !== "undefined" && window.localStorage) {
   const lastLoad = window.localStorage.getItem("na_lastload");
   const now = Date.now();
@@ -2026,6 +2026,16 @@ function EBdg({
       c: "#0891b2",
       bg: "#e0f2fe",
       l: "Certificado"
+    },
+    ofertada: {
+      c: "#7c3aed",
+      bg: "#ede9fe",
+      l: "Ofertada"
+    },
+    certif_oferta: {
+      c: "#065f46",
+      bg: "#d1fae5",
+      l: "Certif. Oferta"
     }
   }[estado] || {
     c: C.warn,
@@ -2817,7 +2827,7 @@ function App() {
   const [ofertas, setOfertas] = useState([]);
   const safeOfertas = () => Array.isArray(ofertas) ? ofertas : [];
   const [cfgOfertas, setCfgOfertas] = useState(CFG_OFERTAS_DEF);
-  // HSSE v2.5
+  // HSSE v2.6
   const [hsseSups, setHsseSups] = useState([]);
   const [hsseInfCounter, setHsseInfCounter] = useState(1);
   const [hsseHist, setHsseHist] = useState([]);
@@ -2844,6 +2854,14 @@ function App() {
   const [collapsedIds, setCollapsedIds] = useState(new Set());
   const toggleCard = id => setCollapsedIds(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
   const [collapsedHsseMeses, setCollapsedHsseMeses] = useState({});
+  const [fAdmArchEstado, setFAdmArchEstado] = useState("");
+  const [fAdmArchProy, setFAdmArchProy] = useState("");
+  const [fAdmArchSite, setFAdmArchSite] = useState("");
+  const [fAdmArchTrab, setFAdmArchTrab] = useState("");
+  const [admArchCollapsedMonths, setAdmArchCollapsedMonths] = useState(new Set());
+  const toggleAdmArchMonth = m => setAdmArchCollapsedMonths(s => { const n = new Set(s); n.has(m) ? n.delete(m) : n.add(m); return n; });
+  const [admArchExpandedIds, setAdmArchExpandedIds] = useState(new Set());
+  const toggleAdmArchCard = id => setAdmArchExpandedIds(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
   const [mEReg, setMEReg] = useState(null);
   const [mEConc, setMEConc] = useState(null);
   const [mTrab, setMTrab] = useState(false);
@@ -3170,6 +3188,7 @@ function App() {
       items.push({
         tipo: "actividad",
         icon: "📋",
+        label: "Nueva actividad",
         texto: `Nueva actividad de ${r.creadoPor || r.trabajador}: ${r.esGrupo ? `grupo ${r.lineasGrupo?.length || 0} conceptos` : concs.find(c => c.id === r.conceptoId)?.nombre || "—"}`,
         sub: p?.nombre || "",
         fecha: r.createdAt,
@@ -3181,41 +3200,83 @@ function App() {
       items.push({
         tipo: "oferta",
         icon: "📄",
+        label: "Nueva oferta",
         texto: `Nueva oferta: ${o.asunto || "—"} (${o.numero || "—"})`,
         sub: `${o.estado || "Borrador"}`,
         fecha: o.creadoEn,
         id: o.id
       });
     });
-    // Actividades certificadas por técnicos
+    // Actividades certificadas por técnicos (flujo normal)
     registros.filter(r => r.estado === "certificado" && r.createdAt && r.createdAt > lastLogin).forEach(r => {
       const p = proyectos.find(x => x.id === r.proyectoId);
       items.push({
         tipo: "certificado",
         icon: "✅",
+        label: "Certificación",
         texto: `${r.trabajador || r.creadoPor} ha certificado: ${r.esGrupo ? ("grupo " + (r.lineasGrupo?.length || 0) + " conceptos") : (concs.find(c => c.id === r.conceptoId)?.nombre || "—")}`,
         sub: p?.nombre || "",
         fecha: r.createdAt,
         id: r.id
       });
     });
-    // Certificaciones pendientes de aprobación
-    registros.filter(r =>
-      r.esGrupo && r.lineasGrupo?.some(l => l.certifEnviada && !l.certifAprobada)
-    ).forEach(r => {
+    // Actividades certificadas vía oferta → pendientes de facturar
+    registros.filter(r => r.estado === "certif_oferta" && r.certifOfertaAt && r.certifOfertaAt > lastLogin).forEach(r => {
       const p = proyectos.find(x => x.id === r.proyectoId);
-      const nCertif = r.lineasGrupo.filter(l => l.certifEnviada && !l.certifAprobada).length;
       items.push({
-        tipo: "certificacion",
-        icon: "📤",
-        texto: `${r.trabajador || r.creadoPor} ha enviado ${nCertif} ítem(s) para certificar`,
-        sub: p?.nombre || "",
-        fecha: r.createdAt || new Date().toISOString(),
+        tipo: "certif_oferta",
+        icon: "🗂",
+        label: "Certif. Oferta — pendiente facturar",
+        texto: `${r.trabajador || r.creadoPor} ha certificado vía oferta: ${r.esGrupo ? ("grupo " + (r.lineasGrupo?.length || 0) + " ítems") : (concs.find(c => c.id === r.conceptoId)?.nombre || "—")}`,
+        sub: (p?.nombre || "") + (r.ofertaCodigo ? " · " + r.ofertaCodigo : ""),
+        fecha: r.certifOfertaAt,
         id: r.id
       });
     });
+    // Certificaciones pendientes de aprobación (solo las enviadas desde último login)
+    registros.filter(r =>
+      r.esGrupo && r.lineasGrupo?.some(l => l.certifEnviada && !l.certifAprobada && l.certifEnviadaAt && l.certifEnviadaAt > lastLogin)
+    ).forEach(r => {
+      const p = proyectos.find(x => x.id === r.proyectoId);
+      const pendLineas = r.lineasGrupo.filter(l => l.certifEnviada && !l.certifAprobada && l.certifEnviadaAt && l.certifEnviadaAt > lastLogin);
+      const nCertif = pendLineas.length;
+      const latestFecha = pendLineas.reduce((max, l) => l.certifEnviadaAt > max ? l.certifEnviadaAt : max, pendLineas[0]?.certifEnviadaAt || lastLogin);
+      items.push({
+        tipo: "certificacion",
+        icon: "📤",
+        label: "Pendiente de aprobar",
+        texto: `${r.trabajador || r.creadoPor} ha enviado ${nCertif} ítem(s) para certificar`,
+        sub: p?.nombre || "",
+        fecha: latestFecha,
+        id: r.id
+      });
+    });
+    // Supervisiones HSSE nuevas
+    hsseSups.filter(s => s.creadoEn && s.creadoEn > lastLogin).forEach(s => {
+      items.push({
+        tipo: "hsse_nueva",
+        icon: "🦺",
+        label: "Nueva supervisión HSSE",
+        texto: `${s.tecnico || s.trabajador || "Técnico"} — ${s.tipo || "Supervisión"} ${s.horas ? "· " + s.horas + "h" : ""}`,
+        sub: s.zona ? "Zona: " + s.zona : "",
+        fecha: s.creadoEn,
+        id: s.id
+      });
+    });
+    // Supervisiones HSSE pendientes de aprobar
+    hsseSups.filter(s => s.estado === "pendiente").forEach(s => {
+      items.push({
+        tipo: "hsse_pendiente",
+        icon: "⏳",
+        label: "Supervisión HSSE pendiente de aprobar",
+        texto: `${s.tecnico || s.trabajador || "Técnico"} — ${s.tipo || "Supervisión"} ${s.horas ? "· " + s.horas + "h" : ""}`,
+        sub: s.zona ? "Zona: " + s.zona : "",
+        fecha: s.creadoEn || new Date().toISOString(),
+        id: s.id
+      });
+    });
     return items.sort((a, b) => b.fecha.localeCompare(a.fecha));
-  }, [lastLogin, registros, ofertas, proyectos, concs, isAdmin]);
+  }, [lastLogin, registros, ofertas, proyectos, concs, isAdmin, hsseSups]);
   const gP = id => proyectos.find(p => p.id === id);
   const gC = id => concs.find(c => c.id === id);
   const gCL = id => clientes.find(c => c.id === id);
@@ -3499,6 +3560,7 @@ function App() {
     const proy = fInf.pid ? gP(fInf.pid) : null;
     const rs = registros.filter(r => {
       if (r.estado !== "aprobado") return false;
+      if (r.ofertaCodigo) return false; // Las ofertadas van por el camino oferta→factura, no por informe
       // Solo actividades certificadas: líneas aprobadas por admin O marcadas directamente
       const tieneCertif = r.esGrupo
         ? (r.lineasGrupo || []).some(l => l.certifAprobada)
@@ -4038,6 +4100,27 @@ function App() {
       const _abbrRev = Object.fromEntries(Object.entries(_abbrMap).map(([k,v])=>[v,k]));
       r = r.filter(x => x.trabajador === filtroRTrab || x.trabajador === _abbrRev[filtroRTrab]);
     }
+    // Vista Registro: solo pendiente y rechazada
+    if (view === "registro") {
+      r = r.filter(x => {
+        const lineas = x.lineasGrupo || [];
+        const allAprob = lineas.length > 0 && lineas.every(l => l.certifAprobada);
+        const allCO = lineas.length > 0 && lineas.every(l => l.certifOferta);
+        if (x.estadoCertif === "finalizado" || allAprob || allCO) return false;
+        return x.estado === "pendiente" || x.estado === "rechazado";
+      });
+    }
+    // Vista Revisión: pendiente + aprobado + ofertada (no completamente certificadas)
+    if (view === "revision") {
+      r = r.filter(x => {
+        if (x.estado !== "aprobado" && x.estado !== "ofertada" && x.estado !== "pendiente") return false;
+        const lineas = x.lineasGrupo || [];
+        const allAprob = lineas.length > 0 && lineas.every(l => l.certifAprobada);
+        const allCO = lineas.length > 0 && lineas.every(l => l.certifOferta);
+        if (x.estadoCertif === "finalizado" || allAprob || allCO || x.estado === "certif_oferta") return false;
+        return true;
+      });
+    }
     r.sort((a, b) => {
       if (ordenR === "fecha_desc") return b.fecha.localeCompare(a.fecha);
       if (ordenR === "fecha_asc") return a.fecha.localeCompare(b.fecha);
@@ -4046,7 +4129,7 @@ function App() {
       return 0;
     });
     return r;
-  }, [registros, filtroRPid, filtroRES, filtroRSt, filtroRCreador, filtroRTrab, ordenR, isAdmin, user, proyectos]);
+  }, [registros, filtroRPid, filtroRES, filtroRSt, filtroRCreador, filtroRTrab, ordenR, isAdmin, user, proyectos, view]);
   const fFact = useMemo(() => facturas.filter(f => {
     if (filtroFT && f.tipo !== filtroFT) return false;
     if (filtroFE && f.estado !== filtroFE) return false;
@@ -4107,6 +4190,14 @@ function App() {
     padding: "11px 15px",
     marginBottom: 7
   };
+  const regHdrStyle = (estado) => ({
+    pendiente:    { bg: "#fef3c7", border: "#d48a10" },
+    aprobado:     { bg: "#dbeafe", border: "#3b82f6" },
+    rechazado:    { bg: "#fee2e2", border: "#d03030" },
+    ofertada:     { bg: "#ede9fe", border: "#7c3aed" },
+    certif_oferta:{ bg: "#d1fae5", border: "#059669" },
+    certificado:  { bg: "#ccfbf1", border: "#0d9488" },
+  }[estado] || { bg: C.pGlow, border: C.border });
   const navTrabajos = [{
     k: "registro",
     l: "Registro",
@@ -4116,6 +4207,10 @@ function App() {
     l: "Revisión",
     i: P.eye
   }, ...(isAdmin ? [{
+    k: "archivadas",
+    l: "Archivadas",
+    i: P.hist
+  }, {
     k: "informes",
     l: "Informes",
     i: P.file
@@ -4496,6 +4591,18 @@ function App() {
       var proyConActividad = new Set(registros.filter(function(r){return r.fecha>=hace30;}).map(function(r){return r.proyectoId;}));
       var proyInactivos = proyectos.filter(function(p){return p.activo!==false&&!proyConActividad.has(p.id);});
 
+      /* 9. Actividades certificadas vía actividad, pendientes de facturar */
+      var certActPendFact = registros.filter(function(r){
+        if(r.ofertaCodigo) return false; // las de oferta van por otro camino
+        var isCert=(r.estadoCertif==="finalizado"||r.estado==="aprobado"||(r.lineasGrupo||[]).some(function(l){return l.certifAprobada;}));
+        return isCert && r.estado==="aprobado";
+      });
+      var certActImporte = certActPendFact.reduce(function(s,r){return s+(gT(r)||0);},0);
+
+      /* 10. Actividades certificadas vía oferta, pendientes de facturar */
+      var certOfertaPendFact = registros.filter(function(r){return r.estado==="certif_oferta";});
+      var certOfertaImporte = certOfertaPendFact.reduce(function(s,r){return s+(gT(r)||0);},0);
+
       /* ── KPI CARD COMPONENT ── */
       function KCard(opts){
         var color=opts.color||"#1c3e5e";
@@ -4523,6 +4630,34 @@ function App() {
           KCard({label:"Importe pend. certificación",value:fmtE(pendImporte),color:"#1c3e5e",sub:null}),
           KCard({label:"Rechazadas sin resolver",value:rechazadas.length,color:rechazadas.length>0?"#d03030":"#1a9e7a",detail:rechazadas.length>0?"Requieren atención":null,onClick:rechazadas.length>0?function(){setModulo("trabajos");setView("revision");}:null}),
           KCard({label:"Proyectos sin actividad >30d",value:proyInactivos.length,color:proyInactivos.length>0?"#d48a10":"#1a9e7a",detail:proyInactivos.length>0?proyInactivos.slice(0,2).map(function(p){return p.nombre;}).join(", ")+(proyInactivos.length>2?"…":""):null})
+        ),
+        /* Alertas pendientes de facturar */
+        (certActPendFact.length > 0 || certOfertaPendFact.length > 0) && React.createElement("div",{style:{marginBottom:6}},
+          React.createElement("div",{style:{fontSize:11,fontWeight:700,color:"#8a9199",textTransform:"uppercase",letterSpacing:1.5,marginBottom:8}},"— Pendientes de facturar")
+        ),
+        (certActPendFact.length > 0 || certOfertaPendFact.length > 0) && React.createElement("div",{style:{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:10,marginBottom:16}},
+          certActPendFact.length > 0 && React.createElement("div",{
+            onClick:function(){setModulo("trabajos");setView("historico");},
+            style:{background:"#fff",borderRadius:10,border:"2px solid #d03030",padding:"14px 16px",cursor:"pointer",display:"flex",flexDirection:"column",gap:4}
+          },
+            React.createElement("div",{style:{fontSize:10,color:"#d03030",textTransform:"uppercase",letterSpacing:1,fontWeight:700}},"🔴 Certificadas (actividad) — pendientes de facturar"),
+            React.createElement("div",{style:{display:"flex",alignItems:"baseline",gap:8}},
+              React.createElement("div",{style:{fontSize:26,fontWeight:800,color:"#d03030",lineHeight:1}},certActPendFact.length),
+              React.createElement("div",{style:{fontSize:12,color:"#d03030",fontWeight:600}},fmtE(certActImporte))
+            ),
+            React.createElement("div",{style:{fontSize:11,color:"#d03030",marginTop:2}},"Generar informe y facturar desde Informes")
+          ),
+          certOfertaPendFact.length > 0 && React.createElement("div",{
+            onClick:function(){setModulo("trabajos");setView("revision");},
+            style:{background:"#fff",borderRadius:10,border:"2px solid #7c3aed",padding:"14px 16px",cursor:"pointer",display:"flex",flexDirection:"column",gap:4}
+          },
+            React.createElement("div",{style:{fontSize:10,color:"#7c3aed",textTransform:"uppercase",letterSpacing:1,fontWeight:700}},"🔴 Certificadas (oferta) — pendientes de facturar"),
+            React.createElement("div",{style:{display:"flex",alignItems:"baseline",gap:8}},
+              React.createElement("div",{style:{fontSize:26,fontWeight:800,color:"#7c3aed",lineHeight:1}},certOfertaPendFact.length),
+              React.createElement("div",{style:{fontSize:12,color:"#7c3aed",fontWeight:600}},fmtE(certOfertaImporte))
+            ),
+            React.createElement("div",{style:{fontSize:11,color:"#7c3aed",marginTop:2}},"Facturar desde pestaña Ofertas")
+          )
         ),
         /* Row 2 — HSSE */
         React.createElement("div",{style:{marginBottom:6}},
@@ -4566,7 +4701,7 @@ function App() {
             return techs.map(function(tec,ti){
               var certReg=registros.filter(function(r){
                 var isOwn=(r.trabajador===tec||r.creadoPor===tec);
-                var isCert=(r.estadoCertif==="finalizado"||r.estado==="aprobado"||(r.lineasGrupo||[]).some(function(l){return l.certifAprobada;}));
+                var isCert=(r.estadoCertif==="finalizado"||r.estado==="aprobado"||(r.lineasGrupo||[]).some(function(l){return l.certifAprobada;})||r.estado==="certif_oferta"||(r.lineasGrupo||[]).some(function(l){return l.certifOferta;}));
                 return isOwn&&isCert;
               });
               var totalAno=certReg.filter(function(r){return (r.fecha||"")>=hace365s;}).reduce(function(s,r){return s+(gT(r)||0);},0);
@@ -4655,10 +4790,10 @@ function App() {
     }
   }, /*#__PURE__*/React.createElement("option", {
     value: ""
-  }, "Todos estados"), ["pendiente", "aprobado", "certificado", "cert_parcial", "cert_total", "finalizado", "rechazado"].map(s => /*#__PURE__*/React.createElement("option", {
+  }, "Todos estados"), ["pendiente", "aprobado", "ofertada", "certif_oferta", "certificado", "cert_parcial", "cert_total", "finalizado", "rechazado"].map(s => /*#__PURE__*/React.createElement("option", {
     key: s,
     value: s
-  }, ({"pendiente":"Pendiente","aprobado":"Aprobado","certificado":"Certificado","cert_parcial":"Certif. parcial","cert_total":"Certif. total","finalizado":"Finalizado","rechazado":"Rechazado"})[s] || s.charAt(0).toUpperCase() + s.slice(1)))), isAdmin && /*#__PURE__*/React.createElement(React.Fragment,{key:"fcr"},
+  }, ({"pendiente":"Pendiente","aprobado":"Aprobado","ofertada":"Ofertada","certif_oferta":"Certif. Oferta","certificado":"Certificado","cert_parcial":"Certif. parcial","cert_total":"Certif. total","finalizado":"Finalizado","rechazado":"Rechazado"})[s] || s.charAt(0).toUpperCase() + s.slice(1)))), isAdmin && /*#__PURE__*/React.createElement(React.Fragment,{key:"fcr"},
     /*#__PURE__*/React.createElement("datalist",{id:"reg-cr-dl"},trabs.map(t=>/*#__PURE__*/React.createElement("option",{key:t,value:t}))),
     /*#__PURE__*/React.createElement("input",{
       list:"reg-cr-dl",placeholder:"Técnico...",value:filtroRCreador,
@@ -4701,16 +4836,17 @@ function App() {
     const _collapsed = collapsedIds.has(r.id);
     const _nItems = r.esGrupo ? (r.lineasGrupo?.length || 0) : 1;
     const _title = r.esGrupo ? ("GRUPO · " + _nItems + " actividades") : (gC(r.conceptoId)?.nombre || "—");
+    const _hdr = regHdrStyle(r.estado);
     return /*#__PURE__*/React.createElement("div", {
       key: r.id,
-      style: { ...rowSt, padding: 0, overflow: "hidden" }
+      style: { ...rowSt, padding: 0, overflow: "hidden", border: "1px solid " + _hdr.border }
     }, /*#__PURE__*/React.createElement("div", {
       onClick: () => toggleCard(r.id),
       style: {
         display: "flex", justifyContent: "space-between", alignItems: "center",
         padding: "7px 12px", cursor: "pointer",
-        background: _collapsed ? "transparent" : C.pGlow,
-        borderBottom: "1px solid " + C.border
+        background: _hdr.bg,
+        borderBottom: "1px solid " + _hdr.border
       }
     }, /*#__PURE__*/React.createElement("div", {
       style: { display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", flex: 1 }
@@ -4719,7 +4855,8 @@ function App() {
     proy?.estacion && /*#__PURE__*/React.createElement("span", { style: { fontSize: 11, color: C.primary } }, "· " + proy.estacion),
     r.trabajador && /*#__PURE__*/React.createElement("span", { style: { fontSize: 11, color: C.muted } }, "· " + r.trabajador),
     /*#__PURE__*/React.createElement("span", { style: { fontSize: 11, color: C.muted } }, "· " + fmtD(r.fecha)),
-    r.esGrupo && /*#__PURE__*/React.createElement("span", { style: { fontSize: 10, color: C.textSec } }, _nItems + " items")
+    r.esGrupo && /*#__PURE__*/React.createElement("span", { style: { fontSize: 10, color: C.textSec } }, _nItems + " items"),
+    r.ofertaCodigo && /*#__PURE__*/React.createElement("span", { style: { fontSize: 10, fontWeight: 700, color: "#7c3aed", background: "#ede9fe", padding: "1px 6px", borderRadius: 4 } }, "🗂 " + r.ofertaCodigo)
     ), /*#__PURE__*/React.createElement("span", { style: { fontSize: 10, color: C.muted } }, _collapsed ? "▼" : "▲")
     ), /*#__PURE__*/React.createElement("div", {
       style: { display: _collapsed ? "none" : "block", padding: "8px 12px" }
@@ -4975,16 +5112,17 @@ function App() {
     const _collapsed = collapsedIds.has(r.id);
     const _nItems = r.esGrupo ? (r.lineasGrupo?.length || 0) : 1;
     const _title = r.esGrupo ? ("GRUPO · " + _nItems + " actividades") : (gC(r.conceptoId)?.nombre || "—");
+    const _hdr = regHdrStyle(r.estado);
     return /*#__PURE__*/React.createElement("div", {
       key: r.id,
-      style: { ...rowSt, padding: 0, overflow: "hidden" }
+      style: { ...rowSt, padding: 0, overflow: "hidden", border: "1px solid " + _hdr.border }
     }, /*#__PURE__*/React.createElement("div", {
       onClick: () => toggleCard(r.id),
       style: {
         display: "flex", justifyContent: "space-between", alignItems: "center",
         padding: "7px 12px", cursor: "pointer",
-        background: _collapsed ? "transparent" : C.pGlow,
-        borderBottom: "1px solid " + C.border
+        background: _hdr.bg,
+        borderBottom: "1px solid " + _hdr.border
       }
     }, /*#__PURE__*/React.createElement("div", {
       style: { display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", flex: 1 }
@@ -4993,7 +5131,8 @@ function App() {
     proy?.estacion && /*#__PURE__*/React.createElement("span", { style: { fontSize: 11, color: C.primary } }, "· " + proy.estacion),
     r.trabajador && /*#__PURE__*/React.createElement("span", { style: { fontSize: 11, color: C.muted } }, "· " + r.trabajador),
     /*#__PURE__*/React.createElement("span", { style: { fontSize: 11, color: C.muted } }, "· " + fmtD(r.fecha)),
-    r.esGrupo && /*#__PURE__*/React.createElement("span", { style: { fontSize: 10, color: C.textSec } }, _nItems + " items")
+    r.esGrupo && /*#__PURE__*/React.createElement("span", { style: { fontSize: 10, color: C.textSec } }, _nItems + " items"),
+    r.ofertaCodigo && /*#__PURE__*/React.createElement("span", { style: { fontSize: 10, fontWeight: 700, color: "#7c3aed", background: "#ede9fe", padding: "1px 6px", borderRadius: 4 } }, "🗂 " + r.ofertaCodigo)
     ), /*#__PURE__*/React.createElement("span", { style: { fontSize: 10, color: C.muted } }, _collapsed ? "▼" : "▲")
     ), /*#__PURE__*/React.createElement("div", {
       style: { display: _collapsed ? "none" : "block", padding: "8px 12px" }
@@ -5120,9 +5259,12 @@ function App() {
           total: gC(l.conceptoId)?.p?.[p?.zona] ?? 0,
           observaciones: l.observaciones
         }));
+        const nOferta = genNumOferta(cfgOfertas);
+        // Marcar actividad como ofertada con referencia al código de oferta
+        setRegistros(rs => rs.map(x => x.id === r.id ? { ...x, estado: "ofertada", ofertaCodigo: nOferta } : x));
         setEditOferta({
           id: null,
-          numero: genNumOferta(cfgOfertas),
+          numero: nOferta,
           asunto: p?.nombre || "",
           version: 1,
           referencia: "",
@@ -5218,7 +5360,202 @@ function App() {
         );
       })
     ))));
-  })))), view === "informes" && isAdmin && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("h2", {
+  }))))
+, view === "archivadas" && isAdmin && /*#__PURE__*/React.createElement(React.Fragment, null,
+  /*#__PURE__*/React.createElement("h2", { style: { fontSize: 17, fontWeight: 700, marginBottom: 4 } }, "Archivadas"),
+  /*#__PURE__*/React.createElement("p", { style: { fontSize: 12, color: C.muted, marginBottom: 10 } }, "Actividades completamente certificadas — agrupadas por mes"),
+  /*#__PURE__*/React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 14 } },
+    /*#__PURE__*/React.createElement("select", {
+      value: fAdmArchEstado, onChange: e => setFAdmArchEstado(e.target.value),
+      style: { padding: "5px 8px", border: "1px solid " + C.border, borderRadius: 5, fontSize: 12, fontFamily: "inherit", background: C.inputBg }
+    },
+      /*#__PURE__*/React.createElement("option", { value: "" }, "Todos los estados"),
+      /*#__PURE__*/React.createElement("option", { value: "aprobado" }, "✅ Aprobadas (normal)"),
+      /*#__PURE__*/React.createElement("option", { value: "certificado" }, "🏁 Certificadas"),
+      /*#__PURE__*/React.createElement("option", { value: "certif_oferta" }, "🗂 Certif. Oferta")
+    ),
+    /*#__PURE__*/React.createElement("select", {
+      value: fAdmArchProy, onChange: e => setFAdmArchProy(e.target.value),
+      style: { padding: "5px 8px", border: "1px solid " + C.border, borderRadius: 5, fontSize: 12, fontFamily: "inherit", background: C.inputBg }
+    },
+      /*#__PURE__*/React.createElement("option", { value: "" }, "Todos los proyectos"),
+      proyectos.map(p => /*#__PURE__*/React.createElement("option", { key: p.id, value: p.id }, p.nombre))
+    ),
+    /*#__PURE__*/React.createElement("select", {
+      value: fAdmArchSite, onChange: e => setFAdmArchSite(e.target.value),
+      style: { padding: "5px 8px", border: "1px solid " + C.border, borderRadius: 5, fontSize: 12, fontFamily: "inherit", background: C.inputBg }
+    },
+      /*#__PURE__*/React.createElement("option", { value: "" }, "Todas las ES"),
+      [...new Set(proyectos.map(p => p.estacion).filter(Boolean))].map(es =>
+        /*#__PURE__*/React.createElement("option", { key: es, value: es }, es)
+      )
+    ),
+    /*#__PURE__*/React.createElement("select", {
+      value: fAdmArchTrab, onChange: e => setFAdmArchTrab(e.target.value),
+      style: { padding: "5px 8px", border: "1px solid " + C.border, borderRadius: 5, fontSize: 12, fontFamily: "inherit", background: C.inputBg }
+    },
+      /*#__PURE__*/React.createElement("option", { value: "" }, "Todos los técnicos"),
+      trabs.map(t => /*#__PURE__*/React.createElement("option", { key: t, value: t }, t))
+    ),
+    (fAdmArchEstado || fAdmArchProy || fAdmArchSite || fAdmArchTrab) && /*#__PURE__*/React.createElement("button", {
+      onClick: () => { setFAdmArchEstado(""); setFAdmArchProy(""); setFAdmArchSite(""); setFAdmArchTrab(""); },
+      style: { padding: "4px 10px", fontSize: 11, background: "transparent", border: "1px solid " + C.border, borderRadius: 5, cursor: "pointer", color: C.muted, fontFamily: "inherit" }
+    }, "✕ Limpiar")
+  ),
+  (() => {
+    let archivadas = registros.filter(r => {
+      const lineas = r.lineasGrupo || [];
+      const allAprob = lineas.length > 0 && lineas.every(l => l.certifAprobada);
+      const allCO = lineas.length > 0 && lineas.every(l => l.certifOferta);
+      if (!(r.estadoCertif === "finalizado" || allAprob || r.estado === "aprobado" || r.estado === "certif_oferta" || allCO)) return false;
+      if (fAdmArchEstado === "aprobado" && r.estado !== "aprobado") return false;
+      if (fAdmArchEstado === "certificado" && !(r.estadoCertif === "finalizado" || allAprob)) return false;
+      if (fAdmArchEstado === "certif_oferta" && r.estado !== "certif_oferta") return false;
+      if (fAdmArchProy && r.proyectoId !== fAdmArchProy) return false;
+      if (fAdmArchSite && gP(r.proyectoId)?.estacion !== fAdmArchSite) return false;
+      if (fAdmArchTrab && r.trabajador !== fAdmArchTrab && r.creadoPor !== fAdmArchTrab) return false;
+      return true;
+    }).sort((a,b) => (b.fecha||"").localeCompare(a.fecha||""));
+    if (!archivadas.length) return /*#__PURE__*/React.createElement("div", {
+      style: { textAlign: "center", color: C.muted, padding: "40px 0", fontSize: 13 }
+    }, "No hay actividades archivadas con estos filtros");
+    const mesesNombres = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
+    const meses = {};
+    archivadas.forEach(r => {
+      const key = (r.fecha || "").slice(0,7);
+      if (!meses[key]) meses[key] = [];
+      meses[key].push(r);
+    });
+    const mesesOrdenados = Object.keys(meses).sort((a,b) => b.localeCompare(a));
+    return /*#__PURE__*/React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 8 } },
+      mesesOrdenados.map(mesKey => {
+        const [anyo, mes] = mesKey.split("-");
+        const label = mesesNombres[parseInt(mes,10)-1] + " " + anyo;
+        const regs = meses[mesKey];
+        const isCollapsed = admArchCollapsedMonths.has(mesKey);
+        const totalMes = regs.reduce((s,r) => s+(gT(r)||0), 0);
+        return /*#__PURE__*/React.createElement("div", { key: mesKey, style: { borderRadius: 8, border: "1px solid " + C.border, overflow: "hidden", marginBottom: 4 } },
+          /*#__PURE__*/React.createElement("div", {
+            onClick: () => toggleAdmArchMonth(mesKey),
+            style: { display: "flex", justifyContent: "space-between", alignItems: "center",
+              padding: "10px 14px", cursor: "pointer", background: isCollapsed ? C.card : "#1c3e5e",
+              borderBottom: isCollapsed ? "none" : "1px solid " + C.border }
+          },
+            /*#__PURE__*/React.createElement("div", { style: { display: "flex", gap: 10, alignItems: "center" } },
+              /*#__PURE__*/React.createElement("span", { style: { fontWeight: 700, fontSize: 13, color: isCollapsed ? C.text : "#fff" } }, label),
+              /*#__PURE__*/React.createElement("span", { style: { fontSize: 11, color: isCollapsed ? C.muted : "rgba(255,255,255,0.7)", background: isCollapsed ? C.border : "rgba(255,255,255,0.15)", padding: "1px 8px", borderRadius: 10 } }, regs.length + " actividades"),
+              totalMes > 0 && /*#__PURE__*/React.createElement("span", { style: { fontSize: 11, fontWeight: 600, color: isCollapsed ? "#1c3e5e" : "#93c5fd" } }, fmtE(totalMes))
+            ),
+            /*#__PURE__*/React.createElement("span", { style: { fontSize: 11, color: isCollapsed ? C.muted : "#fff" } }, isCollapsed ? "▼ Expandir" : "▲ Colapsar")
+          ),
+          !isCollapsed && /*#__PURE__*/React.createElement("div", { style: { padding: "8px 10px", display: "flex", flexDirection: "column", gap: 6 } },
+            regs.map(r => {
+                const proy = gP(r.proyectoId);
+                const lineas = r.lineasGrupo || [];
+                const _nItems = r.esGrupo ? lineas.length : 1;
+                const _title = r.esGrupo ? ("GRUPO · " + _nItems + " actividades") : (gC(r.conceptoId)?.nombre || "—");
+                const _hdr = regHdrStyle(r.estado);
+                const isExpanded = admArchExpandedIds.has(r.id);
+                const zona = gP(r.proyectoId)?.zona;
+                return /*#__PURE__*/React.createElement("div", {
+                  key: r.id,
+                  style: { ...rowSt, padding: 0, overflow: "hidden", border: "1px solid " + _hdr.border, marginBottom: 0 }
+                },
+                  /*#__PURE__*/React.createElement("div", {
+                    onClick: () => toggleAdmArchCard(r.id),
+                    style: { display: "flex", justifyContent: "space-between", alignItems: "center",
+                      padding: "7px 12px", cursor: "pointer", background: _hdr.bg }
+                  },
+                    /*#__PURE__*/React.createElement("div", { style: { display: "flex", gap: 7, alignItems: "center", flexWrap: "wrap", flex: 1 } },
+                      /*#__PURE__*/React.createElement("span", { style: { fontWeight: 700, fontSize: 12 } }, _title),
+                      proy && /*#__PURE__*/React.createElement("span", { style: { fontSize: 11, color: C.textSec, fontWeight: 600 } }, "· " + (proy.nombre || proy.po || "")),
+                      proy?.estacion && /*#__PURE__*/React.createElement("span", { style: { fontSize: 11, color: C.primary } }, "· " + proy.estacion),
+                      r.trabajador && /*#__PURE__*/React.createElement("span", { style: { fontSize: 11, color: C.muted } }, "· " + r.trabajador),
+                      /*#__PURE__*/React.createElement("span", { style: { fontSize: 11, color: C.muted } }, "· " + fmtD(r.fecha)),
+                      r.esGrupo && /*#__PURE__*/React.createElement("span", { style: { fontSize: 10, color: C.textSec } }, _nItems + " ítems"),
+                      r.ofertaCodigo && /*#__PURE__*/React.createElement("span", {
+                        style: { fontSize: 10, fontWeight: 700, color: "#7c3aed", background: "#f5f3ff", padding: "1px 6px", borderRadius: 4, border: "1px solid #c4b5fd" }
+                      }, "🗂 " + r.ofertaCodigo),
+                      r.estado === "certif_oferta" && /*#__PURE__*/React.createElement("span", {
+                        style: { fontSize: 10, fontWeight: 700, color: "#065f46", background: "#a7f3d0", padding: "1px 6px", borderRadius: 4 }
+                      }, "✓ Certif. Oferta"),
+                      (r.estado === "aprobado" || r.estadoCertif === "finalizado") && !r.ofertaCodigo && /*#__PURE__*/React.createElement("span", {
+                        style: { fontSize: 10, fontWeight: 700, color: "#065f46", background: "#a7f3d0", padding: "1px 6px", borderRadius: 4 }
+                      }, "✓ Certificada")
+                    ),
+                    /*#__PURE__*/React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6 } },
+                      gT(r) != null && /*#__PURE__*/React.createElement("span", { style: { fontSize: 12, fontWeight: 700, color: C.textSec, whiteSpace: "nowrap" } }, fmtE(gT(r))),
+                      /*#__PURE__*/React.createElement("button", {
+                        title: "Revertir actividad",
+                        onClick: e => {
+                          e.stopPropagation();
+                          const opciones = ["pendiente", "aprobado"];
+                          const nombres = { pendiente: "Pendiente (requiere revisión)", aprobado: "Aprobado (listo para certificar)" };
+                          const msg = "¿A qué estado quieres revertir esta actividad?\n\n" + opciones.map((o,i) => (i+1)+". "+nombres[o]).join("\n");
+                          const choice = window.prompt(msg, "1");
+                          if (!choice) return;
+                          const idx = parseInt(choice) - 1;
+                          const nuevoEstado = opciones[idx];
+                          if (!nuevoEstado) return;
+                          setRegistros(rs => rs.map(x => x.id !== r.id ? x : {
+                            ...x,
+                            estado: nuevoEstado,
+                            estadoCertif: null,
+                            certifOfertaAt: null,
+                            lineasGrupo: (x.lineasGrupo || []).map(l => ({
+                              ...l,
+                              certifAprobada: false,
+                              certifEnviada: false,
+                              certifOferta: false,
+                              _certifCheck: false,
+                              _ofertaCheck: false
+                            }))
+                          }));
+                        },
+                        style: { padding: "2px 8px", fontSize: 10, background: "transparent", border: "1px solid #d48a10", borderRadius: 4, cursor: "pointer", color: "#d48a10", fontFamily: "inherit", whiteSpace: "nowrap" }
+                      }, "↩ Revertir"),
+                      /*#__PURE__*/React.createElement("span", { style: { fontSize: 10, color: C.muted } }, isExpanded ? "▲" : "▼")
+                    )
+                  ),
+                  isExpanded && /*#__PURE__*/React.createElement("div", { style: { padding: "8px 12px", borderTop: "1px solid " + _hdr.border } },
+                    r.esGrupo
+                      ? lineas.map((l, i) => {
+                          const conc = gC(l.conceptoId);
+                          const cant = l.cantCertifOferta ?? l.cantCertif ?? l.cantidad ?? 1;
+                          const pu = l.precioManual != null ? l.precioManual : (conc?.p?.[zona] ?? 0);
+                          const dto = (Number(l.descuento) || 0) / 100;
+                          const tot = pu * cant * (1 - dto);
+                          return /*#__PURE__*/React.createElement("div", {
+                            key: l.id || i,
+                            style: { display: "flex", gap: 8, alignItems: "center", padding: "4px 8px", borderRadius: 4, fontSize: 11, marginBottom: 3, background: C.cardL, border: "1px solid " + C.border }
+                          },
+                            /*#__PURE__*/React.createElement("span", { style: { color: C.success, flexShrink: 0 } }, "✓"),
+                            /*#__PURE__*/React.createElement("div", { style: { flex: 1 } },
+                              /*#__PURE__*/React.createElement("span", null, conc?.nombre || "—"),
+                              l.observaciones && /*#__PURE__*/React.createElement("div", { style: { fontSize: 10, color: C.muted, fontStyle: "italic", marginTop: 1 } }, l.observaciones)
+                            ),
+                            /*#__PURE__*/React.createElement("span", { style: { color: C.muted, whiteSpace: "nowrap" } }, cant + " uds"),
+                            tot > 0 && /*#__PURE__*/React.createElement("span", { style: { fontWeight: 600, color: C.textSec, whiteSpace: "nowrap" } }, fmtE(tot))
+                          );
+                        })
+                      : /*#__PURE__*/React.createElement("div", {
+                          style: { display: "flex", gap: 8, alignItems: "center", padding: "4px 8px", borderRadius: 4, fontSize: 11, background: C.cardL, border: "1px solid " + C.border }
+                        },
+                          /*#__PURE__*/React.createElement("span", { style: { color: C.success } }, "✓"),
+                          /*#__PURE__*/React.createElement("span", { style: { flex: 1 } }, gC(r.conceptoId)?.nombre || "—"),
+                          /*#__PURE__*/React.createElement("span", { style: { color: C.muted } }, (r.cantidad || 1) + " uds"),
+                          gT(r) != null && /*#__PURE__*/React.createElement("span", { style: { fontWeight: 600, color: C.textSec } }, fmtE(gT(r)))
+                        )
+                  )
+                );
+              })
+          )
+        );
+      })
+    );
+  })()
+)
+, view === "informes" && isAdmin && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("h2", {
     style: {
       fontSize: 17,
       fontWeight: 700,
@@ -5297,6 +5634,7 @@ function App() {
   }), fInf.desde && fInf.hasta && (() => {
     const rs = registros.filter(r => {
       if (r.estado !== "aprobado") return false;
+      if (r.ofertaCodigo) return false;
       const tieneCertif = r.esGrupo
         ? (r.lineasGrupo || []).some(l => l.certifAprobada)
         : !!r.estadoCertif;
@@ -10934,10 +11272,15 @@ function App() {
     style: {
       padding: "10px 16px",
       borderBottom: `1px solid ${C.border}`,
-      cursor: "pointer"
+      cursor: "pointer",
+      background: n.tipo === "certif_oferta" ? "#faf5ff" : n.tipo === "certificacion" ? "#fffbeb" : (n.tipo === "hsse_pendiente" ? "#fff7ed" : "transparent")
     },
     onClick: () => {
-      setCurView(n.tipo === "oferta" ? "ofertas" : "registros");
+      if (n.tipo === "oferta") { setModulo("ofertas"); }
+      else if (n.tipo === "certif_oferta") { setModulo("trabajos"); setView("archivadas"); }
+      else if (n.tipo === "certificacion") { setModulo("trabajos"); setView("revision"); }
+      else if (n.tipo === "hsse_nueva" || n.tipo === "hsse_pendiente") { setModulo("hsse"); setViewH("revision"); }
+      else { setModulo("trabajos"); setView("revision"); }
       setShowBuzon(false);
     }
   }, /*#__PURE__*/React.createElement("div", {
@@ -10954,7 +11297,13 @@ function App() {
     style: {
       flex: 1
     }
-  }, /*#__PURE__*/React.createElement("div", {
+  }, n.label && /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 10, fontWeight: 700,
+      color: n.tipo === "certif_oferta" ? "#7c3aed" : n.tipo === "certificacion" ? "#d48a10" : (n.tipo === "hsse_nueva" || n.tipo === "hsse_pendiente") ? "#065f46" : C.primary,
+      textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 2
+    }
+  }, n.label), /*#__PURE__*/React.createElement("div", {
     style: {
       fontSize: 12,
       fontWeight: 600,
