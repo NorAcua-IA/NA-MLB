@@ -94,6 +94,69 @@ async function sv(key, d) {
 window._backupDirHandle = null;
 const BACKUP_MAX_FILES = 10;
 const BACKUP_INTERVAL_MS = 2 * 60 * 60 * 1000; // 2 horas
+const GH_OWNER = "noracua-ia";
+const GH_REPO  = "NA-Backup";
+const GH_PATH  = "data/noracua-latest.json";
+const GH_API   = "https://api.github.com";
+
+function getGhToken() { return localStorage.getItem('na_gh_token') || ""; }
+
+// Guarda datos en GitHub (crea o actualiza el fichero con historial de commits)
+async function ghPush(datos) {
+  const token = getGhToken();
+  if (!token) return { ok: false, msg: "No hay token de GitHub configurado" };
+  try {
+    const content = btoa(unescape(encodeURIComponent(
+      JSON.stringify({ fecha: new Date().toISOString(), version: APP_VERSION, datos }, null, 2)
+    )));
+    // Obtener SHA del fichero actual (necesario para actualizar)
+    let sha = null;
+    const getR = await fetch(`${GH_API}/repos/${GH_OWNER}/${GH_REPO}/contents/${GH_PATH}`, {
+      headers: { Authorization: `token ${token}`, Accept: "application/vnd.github.v3+json" }
+    });
+    if (getR.ok) { const j = await getR.json(); sha = j.sha; }
+    // Crear o actualizar
+    const body = {
+      message: `Backup NorAcua v${APP_VERSION} — ${new Date().toLocaleString('es-ES')}`,
+      content,
+      ...(sha ? { sha } : {})
+    };
+    const putR = await fetch(`${GH_API}/repos/${GH_OWNER}/${GH_REPO}/contents/${GH_PATH}`, {
+      method: "PUT",
+      headers: { Authorization: `token ${token}`, Accept: "application/vnd.github.v3+json", "Content-Type": "application/json" },
+      body: JSON.stringify(body)
+    });
+    if (!putR.ok) {
+      const err = await putR.text();
+      return { ok: false, msg: `GitHub error ${putR.status}: ${err.slice(0,120)}` };
+    }
+    localStorage.setItem('na_gh_last', new Date().toISOString());
+    return { ok: true, msg: "Backup en GitHub OK" };
+  } catch(e) {
+    return { ok: false, msg: e.message };
+  }
+}
+
+// Recupera datos desde GitHub (fallback de emergencia)
+async function ghPull() {
+  const token = getGhToken();
+  if (!token) return null;
+  try {
+    const r = await fetch(`${GH_API}/repos/${GH_OWNER}/${GH_REPO}/contents/${GH_PATH}`, {
+      headers: { Authorization: `token ${token}`, Accept: "application/vnd.github.v3+json" }
+    });
+    if (!r.ok) return null;
+    const j = await r.json();
+    const decoded = decodeURIComponent(escape(atob(j.content.replace(/\n/g,''))));
+    const parsed = JSON.parse(decoded);
+    console.log('[NorAcua] Datos recuperados desde GitHub, fecha backup:', parsed.fecha);
+    return parsed.datos || null;
+  } catch(e) {
+    console.warn('[NorAcua] ghPull error:', e.message);
+    return null;
+  }
+}
+
 
 async function initBackupFolder() {
   try {
@@ -161,7 +224,10 @@ async function autoBackup(datos) {
     localStorage.setItem('na_autobk_last', fecha.toISOString());
     // Mantener últimos 10 en localStorage
     Object.keys(localStorage).filter(k => k.startsWith('na_autobk_na-backup-')).sort().reverse().slice(BACKUP_MAX_FILES).forEach(k => localStorage.removeItem(k));
-    // Guardar también en carpeta si está configurada
+    // Guardar en GitHub (redundancia) y en carpeta local
+    const _ghR = await ghPush(datos);
+    if (!_ghR.ok) console.warn('[NorAcua] GitHub backup:', _ghR.msg);
+    else localStorage.setItem('na_gh_last', new Date().toISOString());
     await saveBackupFile(datos);
   } catch(e) { console.warn('[NorAcua] autoBackup error:', e.message); }
 }
@@ -1638,7 +1704,9 @@ const fmtD = s => {
 };
 const today = () => new Date().toISOString().slice(0, 10);
 const addDays = (d, n) => {
+  if (!d) return "";
   const dt = new Date(d);
+  if (isNaN(dt.getTime())) return "";
   dt.setDate(dt.getDate() + n);
   return dt.toISOString().slice(0, 10);
 };
@@ -3092,9 +3160,32 @@ function App() {
           ...c
         })));
         setSeries(se);
-        setFacturas(fa);
+        // ── FALLBACK GITHUB: si datos críticos están vacíos, intentar recuperar de GitHub ──
+        const _ghFallbackNeeded = (fa.length === 0 || of.length === 0 || cl.length <= 2);
+        let _fa = fa, _of = of, _cl = cl, _p = p, _r = r;
+        if (_ghFallbackNeeded) {
+          console.warn('[NorAcua] Datos críticos vacíos o mínimos — intentando recuperar desde GitHub...');
+          try {
+            const ghData = await ghPull();
+            if (ghData) {
+              const ghFa = ghData['na-v21-facturas'];
+              const ghOf = ghData['na-v21-ofertas'];
+              const ghCl = ghData['na-v20-clientes'];
+              const ghP  = ghData['na-v20-proyectos'];
+              const ghR  = ghData['na-v20-registros'];
+              if (Array.isArray(ghFa) && ghFa.length > fa.length) { _fa = ghFa; console.log('[NorAcua] Facturas restauradas desde GitHub:', ghFa.length); }
+              if (Array.isArray(ghOf) && ghOf.length > of.length) { _of = ghOf; console.log('[NorAcua] Ofertas restauradas desde GitHub:', ghOf.length); }
+              if (Array.isArray(ghCl) && ghCl.length > cl.length) { _cl = ghCl; console.log('[NorAcua] Clientes restaurados desde GitHub:', ghCl.length); }
+              if (Array.isArray(ghP)  && ghP.length  > p.length)  { _p  = ghP;  console.log('[NorAcua] Proyectos restaurados desde GitHub:', ghP.length); }
+              if (Array.isArray(ghR)  && ghR.length  > r.length)  { _r  = ghR;  console.log('[NorAcua] Registros restaurados desde GitHub:', ghR.length); }
+            }
+          } catch(_ghErr) { console.warn('[NorAcua] GitHub fallback falló:', _ghErr.message); }
+        }
+        setFacturas(_fa);
         setEstaciones(es);
-        setOfertas(of);
+        setOfertas(_of);
+        if (_p !== p) setProyectos(_p);
+        if (_r !== r) setRegistros(_r);
         setCfgOfertas(co);
         if(Array.isArray(hsSup))setHsseSups(hsSup);
         if(hsCfg&&typeof hsCfg==="object"){const {hist:_h,...cfgRest}=hsCfg;setHsseCfg(c=>({...c,...cfgRest}));if(Array.isArray(_h))setHsseHist(_h);}
@@ -5933,6 +6024,69 @@ function App() {
       }, "🔐 Verificar Supabase"),
       /*#__PURE__*/React.createElement(Btn, {
         sm: true, variant: "ghost",
+        style: { color: "#1c3e5e", borderColor: "#1c3e5e" },
+        onClick: async () => {
+          const current = getGhToken();
+          const token = window.prompt(
+            "Introduce tu GitHub Personal Access Token\n\n" +
+            "Cómo obtenerlo:\n" +
+            "1. GitHub.com → Settings → Developer settings → Personal access tokens → Tokens (classic)\n" +
+            "2. Generate new token → Scope: solo 'repo' (o 'contents:write' en fine-grained)\n" +
+            "3. Repo destino: noracua-ia/NA-Backup (debes crear este repo privado primero)\n\n" +
+            "Token actual: " + (current ? current.slice(0,8) + "..." : "ninguno"),
+            current || ""
+          );
+          if (token === null) return;
+          if (token.trim()) {
+            localStorage.setItem('na_gh_token', token.trim());
+            // Test inmediato
+            const bkKeys = ['na-v20-proyectos','na-v20-registros','na-v21-facturas','na-v21-ofertas','na-v20-clientes'];
+            const testData = {};
+            for (const k of bkKeys) {
+              const rv = await window.storage.get(k).catch(()=>null);
+              if (rv?.value) { try { testData[k] = JSON.parse(rv.value); } catch { testData[k] = rv.value; } }
+            }
+            const r = await ghPush(testData);
+            if (r.ok) {
+              alert('✅ Token guardado y backup de prueba en GitHub OK\n\nRuta: github.com/noracua-ia/NA-Backup/blob/main/data/noracua-latest.json');
+            } else {
+              alert('⚠️ Token guardado pero el backup falló:\n' + r.msg + '\n\nVerifica que el repo noracua-ia/NA-Backup existe y es privado.');
+            }
+          } else {
+            localStorage.removeItem('na_gh_token');
+            alert('Token eliminado. Los backups no se enviarán a GitHub.');
+          }
+        }
+      }, "🐙 GitHub Backup"),
+      getGhToken() && /*#__PURE__*/React.createElement(Btn, {
+        sm: true, variant: "ghost",
+        style: { color: "#d48a10", borderColor: "#d48a10" },
+        onClick: async () => {
+          if (!window.confirm('¿Recuperar datos de emergencia desde GitHub?\n\nEsto cargará la última versión del backup de GitHub y la usará como fuente de datos.\n\n¡Solo usar en caso de emergencia!')) return;
+          const ghData = await ghPull();
+          if (!ghData) { alert('❌ No se pudo recuperar desde GitHub. Verifica el token y que el repo exista.'); return; }
+          const preview = Object.entries(ghData).map(([k,v]) => k.replace('na-v2.-','') + ': ' + (Array.isArray(v)?v.length+' items':typeof v)).join('\n');
+          if (!window.confirm('Datos encontrados en GitHub:\n\n' + preview + '\n\n¿Restaurar estos datos?')) return;
+          // Restaurar datos clave
+          const SB_URL2 = "https://lhmawivuxgekxleqvqle.supabase.co";
+          const SB_KEY2 = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxobWF3aXZ1eGdla3hsZXF2cWxlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg2MTY1NTYsImV4cCI6MjA5NDE5MjU1Nn0.frbxipEXiMfxsiRjo9rilHDiXoc3BqYGxOh-Qgq0VhU";
+          const SK_TABLE_MAP2 = {"na-v20-proyectos":"na_proyectos","na-v20-registros":"na_registros","na-v21-facturas":"na_facturas","na-v21-ofertas":"na_ofertas","na-v20-clientes":"na_clientes","na-v20-trabajadores":"na_trabajadores","na-v20-responsables":"na_responsables","na-v20-estaciones":"na_estaciones","na-v20-series":"na_series"};
+          for (const [key, table] of Object.entries(SK_TABLE_MAP2)) {
+            const value = ghData[key];
+            if (!value) continue;
+            const strVal = typeof value === 'string' ? value : JSON.stringify(value);
+            localStorage.setItem('na_bk_' + key, strVal);
+            await fetch(SB_URL2 + '/rest/v1/' + table, { method: 'POST',
+              headers: { 'apikey': SB_KEY2, 'Authorization': 'Bearer ' + SB_KEY2, 'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates,return=minimal' },
+              body: JSON.stringify([{ id: key, data: strVal, updated_at: new Date().toISOString() }])
+            }).catch(()=>{});
+          }
+          alert('✅ Restauración desde GitHub completada. Recarga la app.');
+          setTimeout(() => window.location.reload(true), 1500);
+        }
+      }, "🔄 Restaurar GitHub"),
+      /*#__PURE__*/React.createElement(Btn, {
+        sm: true, variant: "ghost",
         onClick: async () => {
           const keys = ['na-v20-proyectos','na-v20-registros','na-v21-facturas','na-v21-ofertas',
             'na-v20-clientes','na-v20-trabajadores','na-v20-responsables','na-v20-estaciones',
@@ -5946,9 +6100,10 @@ function App() {
         }
       }, "⬇ Backup ahora"),
       /*#__PURE__*/React.createElement("span", { style: { fontSize: 10, color: C.muted, alignSelf: "center" } },
-        localStorage.getItem('na_backup_last')
-          ? "Último backup: " + new Date(localStorage.getItem('na_backup_last')).toLocaleString('es-ES') + (localStorage.getItem('na_backup_folder_active') ? " 📁" : " ⬇")
-          : localStorage.getItem('na_bk_ts') ? "Último guardado: " + new Date(localStorage.getItem('na_bk_ts')).toLocaleString('es-ES') : ""
+        [
+          localStorage.getItem('na_backup_last') ? "💾 " + new Date(localStorage.getItem('na_backup_last')).toLocaleString('es-ES') : "",
+          localStorage.getItem('na_gh_last') ? "🐙 " + new Date(localStorage.getItem('na_gh_last')).toLocaleString('es-ES') : (getGhToken() ? "🐙 nunca" : "🐙 sin configurar"),
+        ].filter(Boolean).join(" · ")
       )
     )
   ), /*#__PURE__*/React.createElement(Sec, {
