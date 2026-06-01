@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang='es'><head><meta charset='UTF-8'/><meta name='viewport' content='width=device-width,initial-scale=1.0'/><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"/><meta http-equiv="Pragma" content="no-cache"/><meta http-equiv="Expires" content="0"/><title>NorAcua Suite v2.6</title>
+<!DOCTYPE html><html lang='es'><head><meta charset='UTF-8'/><meta name='viewport' content='width=device-width,initial-scale=1.0'/><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"/><meta http-equiv="Pragma" content="no-cache"/><meta http-equiv="Expires" content="0"/><title>NorAcua Suite v2.7</title>
 <script src='https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js'></script>
 <script src='https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js'></script>
 <style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:'Segoe UI',-apple-system,sans-serif;background:#f4f6f8;}</style>
@@ -231,7 +231,7 @@ async function autoBackup(datos) {
     await saveBackupFile(datos);
   } catch(e) { console.warn('[NorAcua] autoBackup error:', e.message); }
 }
-const APP_VERSION = "2.6";
+const APP_VERSION = "2.7";
 if (typeof window !== "undefined" && window.localStorage) {
   const lastLoad = window.localStorage.getItem("na_lastload");
   const now = Date.now();
@@ -2977,7 +2977,7 @@ function App() {
   const [ofertas, setOfertas] = useState([]);
   const safeOfertas = () => Array.isArray(ofertas) ? ofertas : [];
   const [cfgOfertas, setCfgOfertas] = useState(CFG_OFERTAS_DEF);
-  // HSSE v2.6
+  // HSSE v2.7
   const [hsseSups, setHsseSups] = useState([]);
   const [hsseInfCounter, setHsseInfCounter] = useState(1);
   const [hsseHist, setHsseHist] = useState([]);
@@ -11047,14 +11047,14 @@ function App() {
                           React.createElement("span",null,fmtD(s.fecha)),
                           s.supervisor&&React.createElement("span",null,"· "+s.supervisor),
                           s.zona&&React.createElement("span",null,"· "+s.zona),
+                          s.empresa&&React.createElement("span",{style:{color:"#1c3e5e",fontWeight:600}},"· "+s.empresa),
                           React.createElement("span",null,"· "+(s.horasAdmin||s.horas||"—")+"h"),
                           precio>0&&React.createElement("span",{style:{color:"#1a9e7a",fontWeight:600}},"· "+fmtE(importe)),
                           s.incidencias==="Sí"&&React.createElement("span",{style:{color:"#d03030",fontWeight:600}},"⚠ Incidencia")
                         ),
-                        (s.motivoSupervision||s.empresa||s.comentarios)&&React.createElement("div",{style:{marginTop:4,fontSize:11,color:"#555e66",display:"flex",gap:12,flexWrap:"wrap"}},
+                        (s.motivoSupervision||s.comentarios)&&React.createElement("div",{style:{marginTop:4,fontSize:11,color:"#555e66",display:"flex",gap:12,flexWrap:"wrap"}},
                           s.motivoSupervision&&React.createElement("span",null,"Motivo: "+s.motivoSupervision),
-                          s.empresa&&React.createElement("span",null,"Empresa: "+s.empresa),
-                          s.comentarios&&React.createElement("span",null,"Comentarios: "+s.comentarios)
+                          s.comentarios&&React.createElement("span",null,"· "+s.comentarios)
                         )
                       ),
                       React.createElement("div",{style:{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:4}},
