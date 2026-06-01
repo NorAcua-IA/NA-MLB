@@ -58,17 +58,98 @@ async function ld(key, fb) {
 async function sv(key, d) {
   try {
     if (typeof window.storage === "undefined") return;
+    // GUARD: Protección contra sobreescribir datos reales con datos vacíos/incorrectos
+    if (Array.isArray(d)) {
+      const bkStr = localStorage.getItem('na_bk_' + key);
+      if (bkStr) {
+        try {
+          const bkData = JSON.parse(bkStr);
+          if (Array.isArray(bkData) && bkData.length > 5) {
+            const ratio = bkData.length > 0 ? d.length / bkData.length : 1;
+            if (d.length === 0 && bkData.length > 5) {
+              // Bloqueo total: nunca sobreescribir con vacío datos que tenían contenido
+              console.warn('[NorAcua] GUARD: Bloqueado guardar ' + key + ' vacío (backup tiene ' + bkData.length + ' items)');
+              return;
+            }
+            if (ratio < 0.4 && bkData.length > 10) {
+              // Confirmación: reducción sospechosa
+              const nombre = key.replace('na-v21-','').replace('na-v20-','');
+              const ok = window.confirm(
+                'AVISO NorAcua: Los datos de "' + nombre + '" pasaron de ' + bkData.length + ' a ' + d.length + ' items.\n\n' +
+                '¿Estás seguro de guardar? (Cancelar = mantener datos actuales)'
+              );
+              if (!ok) return;
+            }
+          }
+        } catch(e) {}
+      }
+    }
     await window.storage.set(key, JSON.stringify(d));
   } catch (e) {
     console.error(e);
   }
 }
+
+// ── SISTEMA DE BACKUPS ──────────────────────────────────────────
+window._backupDirHandle = null;
+const BACKUP_MAX_FILES = 10;
+const BACKUP_INTERVAL_MS = 2 * 60 * 60 * 1000; // 2 horas
+
+async function initBackupFolder() {
+  try {
+    if (!('showDirectoryPicker' in window)) {
+      alert('Tu navegador no soporta selección de carpeta. Los backups se descargarán a la carpeta de Descargas.');
+      return false;
+    }
+    window._backupDirHandle = await window.showDirectoryPicker({ id: 'noracua-backups', mode: 'readwrite', startIn: 'documents' });
+    localStorage.setItem('na_backup_folder_active', '1');
+    return true;
+  } catch(e) {
+    return false;
+  }
+}
+
+async function saveBackupFile(datos) {
+  const ts = new Date();
+  const pad = n => String(n).padStart(2,'0');
+  const filename = 'noracua-bk-' + ts.getFullYear() + pad(ts.getMonth()+1) + pad(ts.getDate()) + '-' + pad(ts.getHours()) + pad(ts.getMinutes()) + '.json';
+  const json = JSON.stringify({ fecha: ts.toISOString(), version: APP_VERSION, datos }, null, 2);
+
+  if (window._backupDirHandle) {
+    try {
+      const fileHandle = await window._backupDirHandle.getFileHandle(filename, { create: true });
+      const writable = await fileHandle.createWritable();
+      await writable.write(json);
+      await writable.close();
+      // Mantener solo últimos BACKUP_MAX_FILES archivos
+      const files = [];
+      for await (const entry of window._backupDirHandle.values()) {
+        if (entry.kind === 'file' && entry.name.startsWith('noracua-bk-')) files.push(entry.name);
+      }
+      const toDelete = files.sort().slice(0, Math.max(0, files.length - BACKUP_MAX_FILES));
+      for (const name of toDelete) { try { await window._backupDirHandle.removeEntry(name); } catch(e) {} }
+      localStorage.setItem('na_backup_last', ts.toISOString());
+      localStorage.setItem('na_backup_last_file', filename);
+      console.log('[NorAcua] Backup guardado en carpeta:', filename);
+      return true;
+    } catch(e) {
+      console.warn('[NorAcua] Error guardando en carpeta:', e.message);
+    }
+  }
+  // Fallback: descarga directa
+  const blob = new Blob([json], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = filename; a.click();
+  URL.revokeObjectURL(url);
+  localStorage.setItem('na_backup_last', ts.toISOString());
+  return false;
+}
+
 async function autoBackup(datos) {
   try {
     const fecha = new Date();
     const bkKey = 'na-backup-' + fecha.toISOString().slice(0,13).replace(/[^0-9]/g,'');
     const snapshot = JSON.stringify({ fecha: fecha.toISOString(), datos });
-    // Save to Supabase (na_cfg_ofertas table reused for backups)
     const SB_URL_BK = "https://lhmawivuxgekxleqvqle.supabase.co";
     const SB_KEY_BK = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxobWF3aXZ1eGdla3hsZXF2cWxlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg2MTY1NTYsImV4cCI6MjA5NDE5MjU1Nn0.frbxipEXiMfxsiRjo9rilHDiXoc3BqYGxOh-Qgq0VhU";
     await fetch(SB_URL_BK + '/rest/v1/na_cfg_ofertas', { method: 'POST',
@@ -76,11 +157,12 @@ async function autoBackup(datos) {
       headers: { 'apikey': SB_KEY_BK, 'Authorization': 'Bearer ' + SB_KEY_BK,
         'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates,return=minimal' }
     });
-    // Also localStorage
     localStorage.setItem('na_autobk_' + bkKey, snapshot);
     localStorage.setItem('na_autobk_last', fecha.toISOString());
-    // Keep only last 7 in localStorage
-    Object.keys(localStorage).filter(k => k.startsWith('na_autobk_na-backup-')).sort().reverse().slice(7).forEach(k => localStorage.removeItem(k));
+    // Mantener últimos 10 en localStorage
+    Object.keys(localStorage).filter(k => k.startsWith('na_autobk_na-backup-')).sort().reverse().slice(BACKUP_MAX_FILES).forEach(k => localStorage.removeItem(k));
+    // Guardar también en carpeta si está configurada
+    await saveBackupFile(datos);
   } catch(e) { console.warn('[NorAcua] autoBackup error:', e.message); }
 }
 const APP_VERSION = "2.6";
@@ -3026,7 +3108,19 @@ function App() {
       setLoading(false);
       setHashesReady(true);
     }, 5000);
-    return () => clearTimeout(_t);
+    // Backup automático cada 2 horas mientras la app esté abierta
+    const _bkInterval = setInterval(async () => {
+      const bkData = {};
+      const bkKeys = ['na-v20-proyectos','na-v20-registros','na-v21-facturas','na-v21-ofertas',
+        'na-v20-clientes','na-v20-trabajadores','na-v20-responsables','na-v20-estaciones','na-v20-series'];
+      for (const k of bkKeys) {
+        const r = await window.storage.get(k).catch(()=>null);
+        if (r?.value) { try { bkData[k] = JSON.parse(r.value); } catch { bkData[k] = r.value; } }
+      }
+      await autoBackup(bkData);
+    }, BACKUP_INTERVAL_MS);
+    window._autoBackupInterval = _bkInterval;
+    return () => { clearTimeout(_t); clearInterval(_bkInterval); };
   }, []);
   useEffect(() => {
     if (!loading) {
@@ -5803,7 +5897,40 @@ function App() {
     style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }
   },
     /*#__PURE__*/React.createElement("h2", { style: { fontSize: 17, fontWeight: 700 } }, "Configuraci\xF3n"),
-    /*#__PURE__*/React.createElement("div", { style: { display: "flex", gap: 8 } },
+    /*#__PURE__*/React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap" } },
+      /*#__PURE__*/React.createElement(Btn, {
+        sm: true, variant: "ghost",
+        style: { color: "#059669", borderColor: "#059669" },
+        onClick: async () => {
+          const ok = await initBackupFolder();
+          if (ok) {
+            alert('✅ Carpeta de backups configurada. Los backups automáticos se guardarán aquí cada 2 horas (máx. 10 versiones).');
+          }
+        }
+      }, "📁 Carpeta backups"),
+      /*#__PURE__*/React.createElement(Btn, {
+        sm: true, variant: "ghost",
+        style: { color: "#7c3aed", borderColor: "#7c3aed" },
+        onClick: async () => {
+          const SB_URL = "https://lhmawivuxgekxleqvqle.supabase.co";
+          const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxobWF3aXZ1eGdla3hsZXF2cWxlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg2MTY1NTYsImV4cCI6MjA5NDE5MjU1Nn0.frbxipEXiMfxsiRjo9rilHDiXoc3BqYGxOh-Qgq0VhU";
+          const tables = ['na_proyectos','na_registros','na_facturas','na_ofertas','na_clientes','na_conceptos','na_trabajadores','na_responsables','na_estaciones','na_series','na_cfg_ofertas','na_historico'];
+          const results = {};
+          for (const t of tables) {
+            const r = await fetch(SB_URL + '/rest/v1/' + t + '?select=id&limit=1', {
+              headers: { 'apikey': SB_KEY, 'Authorization': 'Bearer ' + SB_KEY }
+            });
+            results[t] = r.ok ? '✅ OK' : '❌ Error ' + r.status;
+          }
+          const failed = Object.entries(results).filter(([,v]) => v.startsWith('❌'));
+          if (failed.length === 0) {
+            alert('✅ Todas las tablas de Supabase tienen permisos correctos.');
+          } else {
+            const sql = failed.map(([t]) => `GRANT SELECT, INSERT, UPDATE, DELETE ON public.${t} TO anon, authenticated;`).join('\n');
+            alert('❌ Tablas sin permisos:\n' + failed.map(([t,v]) => t + ': ' + v).join('\n') + '\n\nEjecuta este SQL en Supabase Dashboard → SQL Editor:\n\n' + sql);
+          }
+        }
+      }, "🔐 Verificar Supabase"),
       /*#__PURE__*/React.createElement(Btn, {
         sm: true, variant: "ghost",
         onClick: async () => {
@@ -5815,17 +5942,13 @@ function App() {
             const r = await window.storage.get(k).catch(()=>null);
             if (r?.value) { try { bk.datos[k] = JSON.parse(r.value); } catch { bk.datos[k] = r.value; } }
           }
-          const blob = new Blob([JSON.stringify(bk, null, 2)], { type: 'application/json' });
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = 'noracua_backup_' + new Date().toISOString().slice(0,10) + '.json';
-          a.click();
-          URL.revokeObjectURL(url);
+          await saveBackupFile(bk.datos);
         }
-      }, "⬇ Backup JSON"),
+      }, "⬇ Backup ahora"),
       /*#__PURE__*/React.createElement("span", { style: { fontSize: 10, color: C.muted, alignSelf: "center" } },
-        localStorage.getItem('na_bk_ts') ? "Último guardado: " + new Date(localStorage.getItem('na_bk_ts')).toLocaleString('es-ES') : ""
+        localStorage.getItem('na_backup_last')
+          ? "Último backup: " + new Date(localStorage.getItem('na_backup_last')).toLocaleString('es-ES') + (localStorage.getItem('na_backup_folder_active') ? " 📁" : " ⬇")
+          : localStorage.getItem('na_bk_ts') ? "Último guardado: " + new Date(localStorage.getItem('na_bk_ts')).toLocaleString('es-ES') : ""
       )
     )
   ), /*#__PURE__*/React.createElement(Sec, {
