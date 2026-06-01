@@ -4891,6 +4891,10 @@ function App() {
               });
               var totalAno=certReg.filter(function(r){return (r.fecha||"")>=hace365s;}).reduce(function(s,r){return s+(gT(r)||0);},0);
               var totalMes=certReg.filter(function(r){return (r.fecha||"")>=hace30s;}).reduce(function(s,r){return s+(gT(r)||0);},0);
+              // Sumar también ingresos por supervisiones HSSE
+              var certHsse=hsseSups.filter(function(s){return s.supervisor===tec&&(s.estado==="aprobado"||s.estadoFact==="facturado");});
+              totalAno+=certHsse.filter(function(s){return (s.fecha||"")>=hace365s;}).reduce(function(acc,s){return acc+(Number(s.importe)||0);},0);
+              totalMes+=certHsse.filter(function(s){return (s.fecha||"")>=hace30s;}).reduce(function(acc,s){return acc+(Number(s.importe)||0);},0);
               return KCard({label:tec,value:fmtE(totalAno),sub:"año · "+fmtE(totalMes)+" mes",color:colors[ti]});
             });
           })()
