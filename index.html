@@ -4,8 +4,9 @@
 <style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:'Segoe UI',-apple-system,sans-serif;background:#f4f6f8;}</style>
 </head><body><div id='root'></div>
 <script>
-const SB_URL="https://lhmawivuxgekxleqvqle.supabase.co";const SB_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxobWF3aXZ1eGdla3hsZXF2cWxlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg2MTY1NTYsImV4cCI6MjA5NDE5MjU1Nn0.frbxipEXiMfxsiRjo9rilHDiXoc3BqYGxOh-Qgq0VhU";const SK_TABLE_MAP={"na-v20-proyectos":"na_proyectos","na-v20-registros":"na_registros","na-v21-facturas":"na_facturas","na-v21-ofertas":"na_ofertas","na-v20-clientes":"na_clientes","na-v21-conceptos-enc":"na_conceptos","na-v20-trabajadores":"na_trabajadores","na-v20-responsables":"na_responsables","na-v20-estaciones":"na_estaciones","na-v20-series":"na_series","na-v21-cfg-ofertas":"na_cfg_ofertas","na-v20-historico":"na_historico","na-last-login":"na_cfg_ofertas","na-v21-conceptos-activos":"na_cfg_ofertas","na-backup-auto":"na_cfg_ofertas","na-v25-hsse-sups":"na_registros","na-v25-hsse-cfg":"na_cfg_ofertas"};const _sbFetch=async(path,opts={})=>{const r=await fetch(SB_URL+path,{...opts,headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json',...(opts.headers||{})}});if(!r.ok){const e=await r.text();console.error('SB error',r.status,e);return null;}const ct=r.headers.get('content-type')||'';return ct.includes('json')?r.json():null;};window.storage={get:async(key)=>{const tbl=SK_TABLE_MAP[key];if(!tbl)return null;const rows=await _sbFetch('/rest/v1/'+tbl+'?id=eq.'+encodeURIComponent(key)+'&select=data',{method:'GET'});if(!rows||rows.length===0){// Supabase empty - check local backup
-const bk=localStorage.getItem('na_bk_'+key);if(bk){console.warn('[NorAcua] Supabase vacío para '+key+', usando backup local');return {key,value:bk};}return null;}return {key,value:rows[0].data};},set:async(key,value)=>{const tbl=SK_TABLE_MAP[key];if(!tbl)return null;// Save to localStorage backup first
+const SB_URL="https://lhmawivuxgekxleqvqle.supabase.co";const SB_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxobWF3aXZ1eGdla3hsZXF2cWxlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg2MTY1NTYsImV4cCI6MjA5NDE5MjU1Nn0.frbxipEXiMfxsiRjo9rilHDiXoc3BqYGxOh-Qgq0VhU";const SK_TABLE_MAP={"na-v20-proyectos":"na_proyectos","na-v20-registros":"na_registros","na-v21-facturas":"na_facturas","na-v21-ofertas":"na_ofertas","na-v20-clientes":"na_clientes","na-v21-conceptos-enc":"na_conceptos","na-v20-trabajadores":"na_trabajadores","na-v20-responsables":"na_responsables","na-v20-estaciones":"na_estaciones","na-v20-series":"na_series","na-v21-cfg-ofertas":"na_cfg_ofertas","na-v20-historico":"na_historico","na-last-login":"na_cfg_ofertas","na-v21-conceptos-activos":"na_cfg_ofertas","na-backup-auto":"na_cfg_ofertas","na-v25-hsse-sups":"na_registros","na-v25-hsse-cfg":"na_cfg_ofertas"};const _sbFetch=async(path,opts={})=>{const r=await fetch(SB_URL+path,{...opts,headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json',...(opts.headers||{})}});if(!r.ok){const e=await r.text();console.error('SB error',r.status,e);return null;}const ct=r.headers.get('content-type')||'';return ct.includes('json')?r.json():null;};window.storage={get:async(key)=>{const tbl=SK_TABLE_MAP[key];if(!tbl)return null;const rows=await _sbFetch('/rest/v1/'+tbl+'?id=eq.'+encodeURIComponent(key)+'&select=data',{method:'GET'});const lsBk=localStorage.getItem('na_bk_'+key);if(!rows||rows.length===0){// Supabase empty - check local backup
+if(lsBk){console.warn('[NorAcua] Supabase vacío para '+key+', usando localStorage');return {key,value:lsBk};}return null;}// Ambos disponibles: si localStorage tiene MÁS items, la escritura Supabase falló (suspensión) — usar localStorage
+const sbData=rows[0].data;try{const sbArr=JSON.parse(sbData);const lsArr=lsBk?JSON.parse(lsBk):null;if(Array.isArray(sbArr)&&Array.isArray(lsArr)&&lsArr.length>sbArr.length){console.warn('[NorAcua] localStorage más reciente para '+key+' ('+lsArr.length+' vs '+sbArr.length+' items) — recuperando');return {key,value:lsBk};}}catch(e){}return {key,value:sbData};},set:async(key,value)=>{const tbl=SK_TABLE_MAP[key];if(!tbl)return null;// Save to localStorage backup first
 try{localStorage.setItem('na_bk_'+key,value);localStorage.setItem('na_bk_ts',new Date().toISOString());}catch(e){}await _sbFetch('/rest/v1/'+tbl,{method:'POST',body:JSON.stringify([{id:key,data:value,updated_at:new Date().toISOString()}]),headers:{'Prefer':'resolution=merge-duplicates,return=minimal'}});return {key,value};},delete:async(key)=>{const tbl=SK_TABLE_MAP[key];if(!tbl)return null;await _sbFetch('/rest/v1/'+tbl+'?id=eq.'+encodeURIComponent(key),{method:'DELETE'});return {key,deleted:true}}};
 const{useState,useEffect,useRef,useMemo,createElement}=React;
 
@@ -59,7 +60,7 @@ async function ld(key, fb) {
 // Snapshot de referencia inmutable — se guarda al login, nunca se sobreescribe automáticamente
 window._naRefSnapshot = window._naRefSnapshot || {};
 function updateRefSnapshot(key, data) {
-  if (Array.isArray(data) && data.length > 5) {
+  if (Array.isArray(data) && data.length > 0) {
     if (!window._naRefSnapshot[key] || window._naRefSnapshot[key].length < data.length) {
       window._naRefSnapshot[key] = data;
     }
@@ -73,7 +74,7 @@ async function sv(key, d) {
       const ref = window._naRefSnapshot[key] || (() => {
         try { const b = localStorage.getItem('na_bk_' + key); return b ? JSON.parse(b) : null; } catch(e) { return null; }
       })();
-      if (ref && Array.isArray(ref) && ref.length > 5) {
+      if (ref && Array.isArray(ref) && ref.length > 0) {
         if (d.length === 0) {
           console.warn('[NorAcua] GUARD BLOQUEADO: intento de vaciar', key, '(ref tiene', ref.length, 'items)');
           return;
@@ -148,16 +149,71 @@ async function ghPull() {
   } catch(e) { return null; }
 }
 
+// ── INDEXEDDB: persistir FileSystemDirectoryHandle entre recargas ──
+async function _idbSaveHandle(h) {
+  return new Promise(res => {
+    try {
+      const req = indexedDB.open('noracua-fs', 1);
+      req.onupgradeneeded = e => e.target.result.createObjectStore('handles');
+      req.onsuccess = e => {
+        const tx = e.target.result.transaction('handles', 'readwrite');
+        tx.objectStore('handles').put(h, 'backup-dir');
+        tx.oncomplete = () => res(true); tx.onerror = () => res(false);
+      };
+      req.onerror = () => res(false);
+    } catch(e) { res(false); }
+  });
+}
+async function _idbLoadHandle() {
+  return new Promise(res => {
+    try {
+      const req = indexedDB.open('noracua-fs', 1);
+      req.onupgradeneeded = e => e.target.result.createObjectStore('handles');
+      req.onsuccess = e => {
+        const tx = e.target.result.transaction('handles', 'readonly');
+        const gr = tx.objectStore('handles').get('backup-dir');
+        gr.onsuccess = () => res(gr.result || null); gr.onerror = () => res(null);
+      };
+      req.onerror = () => res(null);
+    } catch(e) { res(null); }
+  });
+}
+// Intenta restaurar el handle sin prompt de usuario (solo si ya tiene permiso en sesión activa)
+async function tryRestoreBackupFolder() {
+  try {
+    const h = await _idbLoadHandle();
+    if (!h) return false;
+    const perm = await h.queryPermission({ mode: 'readwrite' });
+    if (perm === 'granted') { window._backupDirHandle = h; console.log('[NorAcua] Carpeta de backups restaurada automáticamente'); return true; }
+    // Permiso caducado — guardar para reconexión con gesto del usuario
+    window._idbBackupHandle = h;
+    return false;
+  } catch(e) { return false; }
+}
+// Llamado desde botón → tiene gesto de usuario → puede pedir permiso
+async function reconnectBackupFolder() {
+  try {
+    const h = window._idbBackupHandle || await _idbLoadHandle();
+    if (!h) return false;
+    const perm = await h.requestPermission({ mode: 'readwrite' });
+    if (perm === 'granted') { window._backupDirHandle = h; localStorage.setItem('na_backup_folder_active','1'); return true; }
+    return false;
+  } catch(e) { return false; }
+}
+
 async function initBackupFolder() {
   try {
     if (!('showDirectoryPicker' in window)) { alert('Tu navegador no soporta esta función. Los backups irán a Descargas.'); return false; }
     window._backupDirHandle = await window.showDirectoryPicker({ id: 'noracua-backups', mode: 'readwrite', startIn: 'documents' });
+    await _idbSaveHandle(window._backupDirHandle); // FIX v2.7.1: persistir en IndexedDB
     localStorage.setItem('na_backup_folder_active', '1');
     return true;
   } catch(e) { return false; }
 }
 
-async function saveBackupFile(datos) {
+// autoMode=true: backups automáticos — NO descargar si no hay handle (evita lluvia de ficheros en Descargas)
+// autoMode=false (defecto): backup manual explícito — sí descarga como fallback
+async function saveBackupFile(datos, autoMode = false) {
   const ts = new Date();
   const pad = n => String(n).padStart(2,'0');
   const fn = 'noracua-bk-'+ts.getFullYear()+pad(ts.getMonth()+1)+pad(ts.getDate())+'-'+pad(ts.getHours())+pad(ts.getMinutes())+'.json';
@@ -173,6 +229,8 @@ async function saveBackupFile(datos) {
       return true;
     } catch(e) { console.warn('[NorAcua] saveBackupFile:', e.message); }
   }
+  if (autoMode) { console.log('[NorAcua] Backup automático — sin carpeta configurada, omitiendo descarga'); return false; }
+  // Solo aquí si es backup MANUAL explícito
   const blob = new Blob([json], {type:'application/json'});
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a'); a.href=url; a.download=fn; a.click(); URL.revokeObjectURL(url);
@@ -184,7 +242,21 @@ async function autoBackup(datos) {
   try {
     const fecha = new Date();
     const bkKey = 'na-backup-' + fecha.toISOString().slice(0,13).replace(/[^0-9]/g,'');
-    const snapshot = JSON.stringify({ fecha: fecha.toISOString(), datos });
+    // FIX v2.7.1: Strip HTML from historico entries — reduce tamaño backup (~60-80% menos)
+    // Los regIds/supIds permiten regenerar los informes. El HTML sigue disponible en Supabase.
+    const datosCompactos = {...datos};
+    if (Array.isArray(datosCompactos['na-v20-historico'])) {
+      datosCompactos['na-v20-historico'] = datosCompactos['na-v20-historico'].map(e => {
+        const {html: _h, ...rest} = e; return {...rest, _htmlStripped: true};
+      });
+    }
+    if (datosCompactos['na-v25-hsse-cfg'] && Array.isArray(datosCompactos['na-v25-hsse-cfg'].hist)) {
+      datosCompactos['na-v25-hsse-cfg'] = {
+        ...datosCompactos['na-v25-hsse-cfg'],
+        hist: datosCompactos['na-v25-hsse-cfg'].hist.map(e => { const {html:_h,...rest}=e; return {...rest,_htmlStripped:true}; })
+      };
+    }
+    const snapshot = JSON.stringify({ fecha: fecha.toISOString(), datos: datosCompactos });
     const SB_URL_BK = "https://lhmawivuxgekxleqvqle.supabase.co";
     const SB_KEY_BK = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxobWF3aXZ1eGdla3hsZXF2cWxlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg2MTY1NTYsImV4cCI6MjA5NDE5MjU1Nn0.frbxipEXiMfxsiRjo9rilHDiXoc3BqYGxOh-Qgq0VhU";
     await fetch(SB_URL_BK + '/rest/v1/na_cfg_ofertas', { method: 'POST',
@@ -197,10 +269,10 @@ async function autoBackup(datos) {
     // Mantener últimos 10 en localStorage
     Object.keys(localStorage).filter(k => k.startsWith('na_autobk_na-backup-')).sort().reverse().slice(BACKUP_MAX_FILES).forEach(k => localStorage.removeItem(k));
     // Guardar en GitHub (redundancia) y en carpeta local
-    const _ghR = await ghPush(datos);
+    const _ghR = await ghPush(datosCompactos);
     if (!_ghR.ok) console.warn('[NorAcua] GitHub backup:', _ghR.msg);
     else localStorage.setItem('na_gh_last', new Date().toISOString());
-    await saveBackupFile(datos);
+    await saveBackupFile(datosCompactos, true); // autoMode: no descarga si no hay carpeta configurada
   } catch(e) { console.warn('[NorAcua] autoBackup error:', e.message); }
 }
 const APP_VERSION = "2.7";
@@ -2926,6 +2998,9 @@ function App() {
   const _lastActivityRef = useRef(Date.now());
   const INACTIVITY_WARN_MS = 25 * 60 * 1000;  // 25 min → aviso
   const INACTIVITY_LOGOUT_MS = 30 * 60 * 1000; // 30 min → cierre
+  // FIX v2.7.1: exponer ref a window para que el handler visibilitychange pueda comprobar inactividad
+  window._naLastActivityRef = _lastActivityRef;
+  window._naInactivityLogoutMs = INACTIVITY_LOGOUT_MS;
   const keyRef = useRef(null);
   const [hashesReady, setHashesReady] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -3119,7 +3194,10 @@ function App() {
         }]), ld(SK.hist, []), ld(SK.clientes, CLIENTES_DEF), ld(SK.series, SERIES_DEF), ld(SK.facturas, []), ld(SK.estaciones, []), ld(SK.ofertas, []).then(v => Array.isArray(v) ? v : Object.values(v || {})), ld(SK.cfgOfertas, CFG_OFERTAS_DEF), ld(SK.hsseSups, []), ld(SK.hsseCfg, {tiposActividad:["Obra menor mantenimiento","Itinerante","Obra menor","Obra mayor"],preciosPorZona:{CENTRO:0,NORTE:0,"CATALUÑA":0,BALEARES:0,OTROS:0},tecnicosExternos:[],poAnual:"",clienteIdBP:""})]);
         setProyectos(p);
         setRegistros(r);
-        setTrabs(t);
+        // FIX v2.7.1: garantizar siempre los 5 trabajadores base aunque Supabase tenga una lista antigua
+        const REQUIRED_TRABS = ["Daniel", "Jordi Santos", "Yennyfer Lemus", "Técnico NorAcua", "Carlos García"];
+        const mergedT = Array.isArray(t) ? [...new Set([...t, ...REQUIRED_TRABS])] : REQUIRED_TRABS;
+        setTrabs(mergedT);
         const rsMig = Array.isArray(rs) ? rs.map(x => typeof x === "string" ? {
           nombre: x,
           sexo: /^Dña\.?/.test(x) ? "F" : "M"
@@ -3184,7 +3262,7 @@ function App() {
       const bkData = {};
       const bkKeys = ['na-v20-proyectos','na-v20-registros','na-v21-facturas','na-v21-ofertas',
         'na-v20-clientes','na-v20-trabajadores','na-v20-responsables','na-v20-estaciones','na-v20-series',
-        'na-v25-hsse-sups','na-v25-hsse-cfg','na-v20-historico'];
+        'na-v25-hsse-sups','na-v25-hsse-cfg','na-v20-historico','na-v21-conceptos-activos','na-v20-usuarios'];
       for (const k of bkKeys) {
         const r = await window.storage.get(k).catch(()=>null);
         if (r?.value) { try { bkData[k] = JSON.parse(r.value); } catch { bkData[k] = r.value; } }
@@ -3192,7 +3270,26 @@ function App() {
       await autoBackup(bkData);
     }, BACKUP_INTERVAL_MS);
     window._autoBackupInterval = _bkInterval;
-    return () => { clearTimeout(_t); clearInterval(_bkInterval); };
+    // FIX v2.7.1: al volver de suspensión, re-push del estado actual para que Supabase esté al día
+    const _onVisible = () => {
+      if (document.visibilityState === 'visible' && window._naWasHidden) {
+        window._naWasHidden = false;
+        // Primero comprobar si hay que cerrar sesión por inactividad
+        if (window._naCheckLogout && window._naCheckLogout()) return;
+        const cur = window._naStateRef;
+        if (!cur) return;
+        console.log('[NorAcua] Página visible tras suspensión — re-sincronizando con Supabase...');
+        if (Array.isArray(cur.hsseSups) && cur.hsseSups.length > 0) sv('na-v25-hsse-sups', cur.hsseSups);
+        if (Array.isArray(cur.registros) && cur.registros.length > 0) sv('na-v20-registros', cur.registros);
+        if (Array.isArray(cur.proyectos) && cur.proyectos.length > 0) sv('na-v20-proyectos', cur.proyectos);
+        if (Array.isArray(cur.facturas)  && cur.facturas.length  > 0) sv('na-v21-facturas', cur.facturas);
+        if (Array.isArray(cur.trabs)     && cur.trabs.length     > 0) sv('na-v20-trabajadores', cur.trabs);
+      } else if (document.visibilityState === 'hidden') {
+        window._naWasHidden = true;
+      }
+    };
+    document.addEventListener('visibilitychange', _onVisible);
+    return () => { clearTimeout(_t); clearInterval(_bkInterval); document.removeEventListener('visibilitychange', _onVisible); };
   }, []);
   useEffect(() => {
     if (!loading) {
@@ -3203,7 +3300,7 @@ function App() {
         const bkData = {};
         const bkKeys = ['na-v20-proyectos','na-v20-registros','na-v21-facturas','na-v21-ofertas',
           'na-v20-clientes','na-v20-trabajadores','na-v20-responsables','na-v20-estaciones','na-v20-series',
-          'na-v25-hsse-sups','na-v25-hsse-cfg','na-v20-historico'];
+          'na-v25-hsse-sups','na-v25-hsse-cfg','na-v20-historico','na-v21-conceptos-activos','na-v20-usuarios'];
         for (const k of bkKeys) {
           const r = await window.storage.get(k).catch(()=>null);
           if (r?.value) { try { bkData[k] = JSON.parse(r.value); } catch { bkData[k] = r.value; } }
@@ -3270,6 +3367,8 @@ function App() {
   }, [cfgOfertas, loading]);
   useEffect(()=>{if(!loading)sv(SK.hsseSups,hsseSups);},[hsseSups,loading]);
   useEffect(()=>{if(!loading)sv(SK.hsseCfg,Object.assign({},hsseCfg,{hist:hsseHist,infCounter:hsseInfCounter}));},[hsseCfg,hsseHist,hsseInfCounter,loading]);
+  // FIX v2.7.1: mantener referencia de estado actual para el handler visibilitychange
+  useEffect(()=>{ window._naStateRef = { hsseSups, registros, proyectos, facturas, trabs }; },[hsseSups,registros,proyectos,facturas,trabs]);
   const saveConcs = async arr => {
     setConcs(arr);
     await sv(SK.cActivos, arr.map(c => ({id: c.id, activo: c.activo !== false})));
@@ -3331,13 +3430,15 @@ function App() {
     setLerr("");
     setLpw("");
     setFase("app");
+    // FIX v2.7.1: intentar restaurar carpeta de backups en silencio (sin prompt)
+    tryRestoreBackupFolder().then(ok => { if(ok) console.log('[NorAcua] Carpeta de backups activa'); });
     // Auto-backup on login
     setTimeout(async () => {
       try {
         const bkData = {};
         const bkKeys = ['na-v20-proyectos','na-v20-registros','na-v21-facturas','na-v21-ofertas',
           'na-v20-clientes','na-v20-trabajadores','na-v20-responsables','na-v20-estaciones','na-v20-series',
-          'na-v25-hsse-sups','na-v25-hsse-cfg','na-v20-historico'];
+          'na-v25-hsse-sups','na-v25-hsse-cfg','na-v20-historico','na-v21-conceptos-activos','na-v20-usuarios'];
         for (const k of bkKeys) {
           const r = await window.storage.get(k).catch(()=>null);
           if (r?.value) { try { bkData[k] = JSON.parse(r.value); } catch { bkData[k] = r.value; } }
@@ -4451,18 +4552,30 @@ function App() {
     const resetTimer = () => { _lastActivityRef.current = Date.now(); setAutoLogoutWarn(false); };
     const events = ["mousedown","mousemove","keydown","touchstart","scroll","click"];
     events.forEach(e => window.addEventListener(e, resetTimer, { passive: true }));
+    const doLogout = () => {
+      events.forEach(e => window.removeEventListener(e, resetTimer));
+      // FIX v2.7.1: guardar estado antes de cerrar sesión (fire-and-forget)
+      const cur = window._naStateRef;
+      if (cur) {
+        if (Array.isArray(cur.hsseSups) && cur.hsseSups.length > 0) sv('na-v25-hsse-sups', cur.hsseSups);
+        if (Array.isArray(cur.registros) && cur.registros.length > 0) sv('na-v20-registros', cur.registros);
+        if (Array.isArray(cur.proyectos) && cur.proyectos.length > 0) sv('na-v20-proyectos', cur.proyectos);
+      }
+      setFase("login"); setUser(null); setAutoLogoutWarn(false);
+      alert("Sesión cerrada automáticamente por inactividad (30 min).");
+    };
     const interval = setInterval(() => {
       const idle = Date.now() - _lastActivityRef.current;
-      if (idle >= INACTIVITY_LOGOUT_MS) {
-        events.forEach(e => window.removeEventListener(e, resetTimer));
-        clearInterval(interval);
-        setFase("login"); setUser(null); setAutoLogoutWarn(false);
-        alert("Sesión cerrada automáticamente por inactividad (30 min).");
-      } else if (idle >= INACTIVITY_WARN_MS) {
-        setAutoLogoutWarn(true);
-      }
+      if (idle >= INACTIVITY_LOGOUT_MS) { clearInterval(interval); doLogout(); }
+      else if (idle >= INACTIVITY_WARN_MS) { setAutoLogoutWarn(true); }
     }, 30000); // revisar cada 30s
-    return () => { events.forEach(e => window.removeEventListener(e, resetTimer)); clearInterval(interval); };
+    // FIX v2.7.1: comprobar inactividad INMEDIATAMENTE al volver de suspensión (antes del re-sync)
+    window._naCheckLogout = () => {
+      const idle = Date.now() - _lastActivityRef.current;
+      if (idle >= INACTIVITY_LOGOUT_MS) { clearInterval(interval); doLogout(); return true; }
+      return false;
+    };
+    return () => { events.forEach(e => window.removeEventListener(e, resetTimer)); clearInterval(interval); window._naCheckLogout = null; };
   }, [fase]);
 
   if (fase === "login" || !user) {
@@ -6021,6 +6134,15 @@ function App() {
           }
         }
       }, "📁 Carpeta backups"),
+      /*#__PURE__*/React.createElement(Btn, {
+        sm: true, variant: "ghost",
+        style: { color: "#059669", borderColor: "#059669", opacity: window._backupDirHandle ? 0.4 : 1 },
+        onClick: async () => {
+          const ok = await reconnectBackupFolder();
+          if (ok) alert('✅ Carpeta de backups reconectada correctamente.');
+          else alert('⚠️ No se pudo reconectar. Usa "📁 Carpeta backups" para seleccionarla de nuevo.');
+        }
+      }, "🔁 Reconectar carpeta"),
       /*#__PURE__*/React.createElement(Btn, {
         sm: true, variant: "ghost",
         style: { color: "#7c3aed", borderColor: "#7c3aed" },
@@ -11041,7 +11163,10 @@ function App() {
                     if(nApro>0)parts.push("✓ "+nApro+" ("+hApro+"h)");
                     if(nPend>0)parts.push("⏳ "+nPend+" ("+hPend+"h)");
                     if(nAnu>0)parts.push("✗ "+nAnu);
-                    return React.createElement("span",{style:{fontSize:11,opacity:.85}},sups.length+" sup · "+totalH+"h"+(parts.length?" | "+parts.join(" · "):"")); 
+                    // FIX v2.7.1: importe total del mes en cabecera colapsada
+                    var totalImporte=sups.reduce(function(a,s){var p=hsseCfg.preciosPorZona&&hsseCfg.preciosPorZona[s.zona]?hsseCfg.preciosPorZona[s.zona]:0;return a+Number(s.horasAdmin||s.horas||0)*p;},0);
+                    var importeStr=totalImporte>0?" · "+fmtE(totalImporte):"";
+                    return React.createElement("span",{style:{fontSize:11,opacity:.85}},sups.length+" sup · "+totalH+"h"+importeStr+(parts.length?" | "+parts.join(" · "):"")); 
                   })(),
                   React.createElement("span",{style:{fontSize:12,opacity:.7}},isOpen?"▲":"▼")
                 )
@@ -11140,7 +11265,10 @@ function App() {
                     var parts=[];
                     if(nApro>0)parts.push("✓ "+nApro+" ("+hApro+"h)");
                     if(nPend>0)parts.push("⏳ "+nPend+" ("+hPend+"h)");
-                    return React.createElement("span",{style:{fontSize:11,opacity:.85}},sups.length+" sup · "+totalH+"h"+(parts.length?" | "+parts.join(" · "):"")); 
+                    // FIX v2.7.1: importe total del mes en cabecera colapsada
+                    var totalImporte=sups.reduce(function(a,s){var p=hsseCfg.preciosPorZona&&hsseCfg.preciosPorZona[s.zona]?hsseCfg.preciosPorZona[s.zona]:0;return a+Number(s.horasAdmin||s.horas||0)*p;},0);
+                    var importeStr=totalImporte>0?" · "+fmtE(totalImporte):"";
+                    return React.createElement("span",{style:{fontSize:11,opacity:.85}},sups.length+" sup · "+totalH+"h"+importeStr+(parts.length?" | "+parts.join(" · "):"")); 
                   })(),
                   React.createElement("span",{style:{fontSize:12,opacity:.7}},isOpen?"▲":"▼")
                 )
