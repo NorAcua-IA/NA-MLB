@@ -2277,33 +2277,24 @@ function HBdg({
   }, m.l);
 }
 function FBdg({
-  estado
+  estado, fechaVto
 }) {
+  // Auto-detectar vencida: fechaVto < hoy y no cobrada/borrador/anulada
+  const _t = today();
+  const autoVencida = fechaVto && fechaVto < _t && !["Cobrada","Borrador","Anulada","Vencida"].includes(estado);
+  const label = autoVencida ? "Vencida" : estado;
   const m = {
-    Borrador: {
-      c: "#666",
-      bg: "#f0f0f0"
-    },
-    Enviada: {
-      c: C.primary,
-      bg: C.pGlow
-    },
-    Cobrada: {
-      c: C.success,
-      bg: C.sucBg
-    },
-    Anulada: {
-      c: C.danger,
-      bg: C.danBg
-    }
-  }[estado] || {
-    c: "#666",
-    bg: "#f0f0f0"
-  };
+    Borrador:  { c: "#6b7280", bg: "#f3f4f6" },
+    Enviada:   { c: "#7c3aed", bg: "#ede9fe" },
+    Pendiente: { c: "#d48a10", bg: "#fef3c7" },
+    Cobrada:   { c: "#059669", bg: "#d1fae5" },
+    Vencida:   { c: "#dc2626", bg: "#fee2e2" },
+    Anulada:   { c: "#9ca3af", bg: "#f3f4f6" }
+  }[label] || { c: "#6b7280", bg: "#f3f4f6" };
   return /*#__PURE__*/React.createElement(Bdg, {
     color: m.c,
     bg: m.bg
-  }, estado);
+  }, label);
 }
 function TBdg({
   tipo
@@ -3056,6 +3047,8 @@ function App() {
   const [collapsedIds, setCollapsedIds] = useState(new Set());
   const toggleCard = id => setCollapsedIds(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
   const [collapsedHsseMeses, setCollapsedHsseMeses] = useState({});
+  const [collapsedFactMeses, setCollapsedFactMeses] = useState({});
+  const [collapsedOfGrupos, setCollapsedOfGrupos] = useState({});
   const [fAdmArchEstado, setFAdmArchEstado] = useState("");
   const [fAdmArchProy, setFAdmArchProy] = useState("");
   const [fAdmArchSite, setFAdmArchSite] = useState("");
@@ -4410,7 +4403,8 @@ function App() {
     if (filtroFDesde && f.fecha < filtroFDesde) return false;
     if (filtroFHasta && f.fecha > filtroFHasta) return false;
     return true;
-  }), [facturas, filtroFT, filtroFE, filtroFS, filtroFDesde, filtroFHasta]);
+  }).sort((a, b) => (b.fecha || '') > (a.fecha || '') ? 1 : (b.fecha || '') < (a.fecha || '') ? -1 : (b.numero || '') > (a.numero || '') ? 1 : -1),
+  [facturas, filtroFT, filtroFE, filtroFS, filtroFDesde, filtroFHasta]);
 
   // FIX #2: filtros ofertas con estación/zona/responsable, sin capítulo
   const fOfertas = useMemo(() => {
@@ -4900,7 +4894,8 @@ function App() {
       var factBorrador = facturas.filter(function(f){return f.estado==="Borrador";});
 
       /* 7. Facturas vencidas (emitidas, fechaVto < today) */
-      var factVencidas = facturas.filter(function(f){return f.estado==="Emitida"&&f.fechaVto&&f.fechaVto<todayStr;});
+      // Auto-vencida: no cobrada/borrador/anulada y fechaVto < hoy
+var factVencidas = facturas.filter(function(f){return f.fechaVto&&f.fechaVto<todayStr&&!["Cobrada","Borrador","Anulada"].includes(f.estado);});
 
       /* 8. Proyectos sin actividad +30 días */
       var hace30 = addDays(todayStr,-30);
@@ -4945,7 +4940,7 @@ function App() {
           KCard({label:"Pendientes de certificar",value:pendCertCount,color:pendCertCount>0?"#d48a10":"#1a9e7a",detail:pendCertCount>0?"Revisar en pestaña Revisión":null,onClick:pendCertCount>0?function(){setModulo("trabajos");setView("revision");}:null}),
           KCard({label:"Importe pend. certificación",value:fmtE(pendImporte),color:"#1c3e5e",sub:null}),
           KCard({label:"Rechazadas sin resolver",value:rechazadas.length,color:rechazadas.length>0?"#d03030":"#1a9e7a",detail:rechazadas.length>0?"Requieren atención":null,onClick:rechazadas.length>0?function(){setModulo("trabajos");setView("revision");}:null}),
-          KCard({label:"Proyectos sin actividad >30d",value:proyInactivos.length,color:proyInactivos.length>0?"#d48a10":"#1a9e7a",detail:proyInactivos.length>0?proyInactivos.slice(0,2).map(function(p){return p.nombre;}).join(", ")+(proyInactivos.length>2?"…":""):null})
+          (function(){var actPendRev=registros.filter(function(r){return r.estado==="pendiente";}).length;return KCard({label:"Actividades pendientes de revisar",value:actPendRev,color:actPendRev>0?"#d48a10":"#1a9e7a",detail:actPendRev>0?"Revisar en pestaña Revisión":null,onClick:actPendRev>0?function(){setModulo("trabajos");setView("revision");}:null});})()
         ),
         /* Alertas pendientes de facturar */
         (certActPendFact.length > 0 || certOfertaPendFact.length > 0) && React.createElement("div",{style:{marginBottom:6}},
@@ -4991,16 +4986,23 @@ function App() {
         ),
         React.createElement("div",{style:{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10,marginBottom:16}},
           KCard({label:"Facturas en borrador",value:factBorrador.length,color:factBorrador.length>0?"#d48a10":"#1a9e7a",onClick:factBorrador.length>0?function(){setModulo("facturacion");setViewF("lista");}:null}),
-          KCard({label:"Facturas vencidas",value:factVencidas.length,color:factVencidas.length>0?"#d03030":"#1a9e7a",detail:factVencidas.length>0?"Pendiente de cobro":null,onClick:factVencidas.length>0?function(){setModulo("facturacion");setViewF("lista");}:null}),
+          (function(){
+            var vencImporte=factVencidas.reduce(function(a,f){return a+calcDocTotal(f).total;},0);
+            return KCard({label:"Facturas vencidas",value:factVencidas.length,color:factVencidas.length>0?"#dc2626":"#1a9e7a",sub:factVencidas.length>0?fmtE(vencImporte)+" pendiente":null,detail:factVencidas.length>0?"Pendiente de cobro":null,onClick:factVencidas.length>0?function(){setModulo("facturacion");setViewF("lista");}:null});
+          })(),
           (function(){
             var filt=facturas.filter(function(f){return ["Enviada","Pendiente","Cobrada","Vencida"].includes(f.estado)&&(f.creadoEn||f.fecha||"")>=hace30;});
             var total=filt.reduce(function(a,f){return a+calcDocTotal(f).total;},0);
             var bySerie={};
-            filt.forEach(function(f){var k=f.serieId||"(sin serie)";if(!bySerie[k])bySerie[k]=0;bySerie[k]+=calcDocTotal(f).total;});
-            var detail=Object.entries(bySerie).map(function(e){var s=series.find(function(x){return x.id===e[0];});var cod=s?s.codigo:e[0];return cod+": "+fmtE(e[1]);}).join(" · ");
+            // f.serie es el codigo directo (ej "DR"); si no, buscar por serieId
+            filt.forEach(function(f){
+              var k=f.serie||(series.find(function(x){return x.id===f.serieId;})||{}).codigo||f.serieId||"(sin serie)";
+              if(!bySerie[k])bySerie[k]=0;bySerie[k]+=calcDocTotal(f).total;
+            });
+            var detail=Object.entries(bySerie).sort(function(a,b){return b[1]-a[1];}).map(function(e){return e[0]+": "+fmtE(e[1]);}).join(" · ");
             return KCard({label:"Facturado últimos 30 días",value:fmtE(total),detail:detail||null,color:"#1c3e5e"});
           })(),
-          KCard({label:"Total registros activos",value:proyectos.filter(function(p){return p.activo!==false;}).length,color:"#1c3e5e",sub:"proyectos"})
+          (function(){var pAct=proyectos.filter(function(p){return p.activo!==false;}).length;return KCard({label:"Proyectos activos",value:pAct,color:"#1c3e5e",sub:"proyectos",detail:proyInactivos.length>0?proyInactivos.length+" sin actividad >30d":null});})()
         )
 
         /* Row 4 — Ingresos por técnico */
@@ -6891,158 +6893,94 @@ function App() {
     value: ""
   }, f.ph), f.opts.map(o => /*#__PURE__*/React.createElement("option", {
     key: o
-  }, o)))))), fFact.length === 0 && /*#__PURE__*/React.createElement("div", {
-    style: {
-      textAlign: "center",
-      padding: 30,
-      color: C.muted
-    }
-  }, "No hay documentos."), fFact.map(f => {
-    const cl = gCL(f.clienteId);
-    const {
-      base,
-      iva,
-      total
-    } = calcDocTotal(f);
-    return /*#__PURE__*/React.createElement("div", {
-      key: f.id,
-      style: {
-        ...rowSt,
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "center",
-        gap: 8
-      }
-    }, /*#__PURE__*/React.createElement("div", {
-      style: {
-        flex: 1,
-        minWidth: 0
-      }
-    }, /*#__PURE__*/React.createElement("div", {
-      style: {
-        display: "flex",
-        alignItems: "center",
-        gap: 7,
-        marginBottom: 2
-      }
-    }, /*#__PURE__*/React.createElement("span", {
-      style: {
-        fontWeight: 700,
-        fontSize: 13
-      }
-    }, f.numero), /*#__PURE__*/React.createElement(TBdg, {
-      tipo: f.tipo
-    }), /*#__PURE__*/React.createElement(FBdg, {
-      estado: f.estado
-    }), f.poRef && /*#__PURE__*/React.createElement("span", {
-      style: {
-        fontSize: 10,
-        background: "#fff8e6",
-        border: "1px solid #f0c96e",
-        borderRadius: 4,
-        padding: "1px 7px",
-        color: "#7a4f00",
-        fontWeight: 700
-      }
-    }, "PO: ", f.poRef)), /*#__PURE__*/React.createElement("div", {
-      style: {
-        fontSize: 11,
-        color: C.muted,
-        display: "flex",
-        gap: 6,
-        flexWrap: "wrap"
-      }
-    }, /*#__PURE__*/React.createElement("span", null, cl?.nombre || "—"), /*#__PURE__*/React.createElement("span", null, "\xB7"), /*#__PURE__*/React.createElement("span", null, fmtD(f.fecha)), f.fechaVto && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("span", null, "\xB7"), /*#__PURE__*/React.createElement("span", null, "Vto: ", fmtD(f.fechaVto))), f.observaciones && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("span", null, "\xB7"), /*#__PURE__*/React.createElement("span", {
-      style: {
-        fontStyle: "italic"
-      }
-    }, f.observaciones.slice(0, 45)))), /*#__PURE__*/React.createElement("div", {
-      style: {
-        fontSize: 10,
-        color: C.textSec,
-        marginTop: 2,
-        display: "flex",
-        gap: 7
-      }
-    }, "Base: ", /*#__PURE__*/React.createElement("strong", null, fmtE(base)), " IVA: ", /*#__PURE__*/React.createElement("strong", null, fmtE(iva)), " Total: ", /*#__PURE__*/React.createElement("strong", {
-      style: {
-        color: f.tipo === "Abono" ? C.danger : C.text
-      }
-    }, fmtE(total)))), /*#__PURE__*/React.createElement("div", {
-      style: {
-        display: "flex",
-        alignItems: "center",
-        gap: 4,
-        flexShrink: 0
-      }
-    }, /*#__PURE__*/React.createElement(Btn, {
-      sm: true,
-      variant: "ghost",
-      onClick: () => setMPrev({
-        html: genPDFFactura({
-          doc: f,
-          cliente: cl,
-          poRef: f.poRef
-        }),
-        nom: f.numero
-      })
-    }, /*#__PURE__*/React.createElement(Ic, {
-      d: P.eye,
-      sz: 10
-    })), /*#__PURE__*/React.createElement(Btn, {
-      sm: true,
-      variant: "ghost",
-      onClick: () => abrirPDF(genPDFFactura({
-        doc: f,
-        cliente: cl,
-        poRef: f.poRef
-      }), (f.numero||'FA-001').split('-').slice(0,2).map((v,i)=>i===1?v.padStart(3,'0'):v).join('-')+'-'+(f.fecha||'').substring(2,4))
-    }, /*#__PURE__*/React.createElement(Ic, {
-      d: P.dl,
-      sz: 10
-    }), " PDF"), /*#__PURE__*/React.createElement(Btn, {
-      sm: true,
-      variant: "ghost",
-      onClick: () => {
-        setEditDoc({
-          ...f,
-          lineas: [...(f.lineas || [])]
-        });
-        setEditMode("edit");
-        setFechaWarn(null);
-        setViewF("editor");
-      }
-    }, /*#__PURE__*/React.createElement(Ic, {
-      d: P.edit,
-      sz: 10
-    })), f.estado === "Borrador" && /*#__PURE__*/React.createElement(Btn, {
-      sm: true,
-      variant: "ghost",
-      onClick: () => cambEst(f.id, "Enviada", f),
-      style: {
-        color: C.primary
-      }
-    }, /*#__PURE__*/React.createElement(Ic, {
-      d: P.mail,
-      sz: 10
-    }), " Enviar"), f.estado === "Enviada" && /*#__PURE__*/React.createElement(Btn, {
-      sm: true,
-      variant: "success",
-      onClick: () => cambEst(f.id, "Cobrada", null)
-    }, "\u2713 Cobrada"), /*#__PURE__*/React.createElement(Btn, {
-      sm: true,
-      variant: "ghost",
-      onClick: () => {
-        if (window.confirm(`¿Eliminar ${f.numero}?`)) eliminarF(f.id);
-      },
-      style: {
-        color: C.danger
-      }
-    }, /*#__PURE__*/React.createElement(Ic, {
-      d: P.trash,
-      sz: 10
-    }))));
-  })), viewF === "editor" && editDoc && (() => {
+  }, o)))))), (function(){
+    if(fFact.length===0) return React.createElement("div",{style:{textAlign:"center",padding:30,color:C.muted}},"No hay documentos.");
+    // Agrupar por mes (YYYY-MM), ordenados ya por fecha desc
+    var porMes={};
+    fFact.forEach(function(f){
+      var mes=(f.fecha||"").substring(0,7);
+      if(!porMes[mes])porMes[mes]=[];
+      porMes[mes].push(f);
+    });
+    var FACT_ESTADO_COLOR={
+      "Borrador":  {bg:"#f9fafb",borderColor:"#e5e7eb"},
+      "Enviada":   {bg:"#f5f3ff",borderColor:"#c4b5fd"},
+      "Pendiente": {bg:"#fffbeb",borderColor:"#fde68a"},
+      "Cobrada":   {bg:"#f0fdf4",borderColor:"#86efac"},
+      "Vencida":   {bg:"#fff1f2",borderColor:"#fca5a5"},
+      "Anulada":   {bg:"#f3f4f6",borderColor:"#d1d5db"}
+    };
+    return Object.entries(porMes).map(function(entry){
+      var mes=entry[0]; var mFacts=entry[1];
+      var mm=mes.substring(5,7); var yy=mes.substring(0,4);
+      var nomMes=(typeof MESES!=="undefined"?MESES[Number(mm)]:["","Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"][Number(mm)])||mes;
+      var isOpen=!collapsedFactMeses["f_"+mes];
+      var totalMes=mFacts.reduce(function(a,f){return a+calcDocTotal(f).total;},0);
+      var cobMes=mFacts.filter(function(f){return f.estado==="Cobrada";}).reduce(function(a,f){return a+calcDocTotal(f).total;},0);
+      var pendMes=mFacts.filter(function(f){return f.estado==="Enviada"||f.estado==="Pendiente";}).length;
+      var vencMes=mFacts.filter(function(f){return f.estado==="Vencida";}).length;
+      var parts=[];
+      if(cobMes>0)parts.push("✓ "+fmtE(cobMes));
+      if(pendMes>0)parts.push("⏳ "+pendMes);
+      if(vencMes>0)parts.push("⚠ "+vencMes+" vencida"+(vencMes>1?"s":""));
+      return React.createElement("div",{key:mes,style:{marginBottom:12}},
+        React.createElement("div",{
+          onClick:function(){setCollapsedFactMeses(function(p){var n=Object.assign({},p);n["f_"+mes]=!n["f_"+mes];return n;});},
+          style:{background:"#1c3e5e",color:"#fff",borderRadius:isOpen?"8px 8px 0 0":"8px",padding:"7px 14px",display:"flex",justifyContent:"space-between",alignItems:"center",cursor:"pointer",userSelect:"none"}
+        },
+          React.createElement("span",{style:{fontWeight:700,fontSize:13}},nomMes+" "+yy),
+          React.createElement("div",{style:{display:"flex",gap:10,alignItems:"center"}},
+            React.createElement("span",{style:{fontSize:11,opacity:.85}},mFacts.length+" doc · "+fmtE(totalMes)+(parts.length?" | "+parts.join(" · "):"")),
+            React.createElement("span",{style:{fontSize:12,opacity:.7}},isOpen?"▲":"▼")
+          )
+        ),
+        isOpen&&React.createElement("div",{style:{padding:"4px 0"}},
+          mFacts.map(function(f,i){
+            var cl=gCL(f.clienteId);
+            var totals=calcDocTotal(f);
+            // Auto-vencida: fechaVto pasada y no cobrada/borrador/anulada
+            var _esVenc=f.fechaVto&&f.fechaVto<today()&&!["Cobrada","Borrador","Anulada","Vencida"].includes(f.estado);
+            var _estadoVis=_esVenc?"Vencida":f.estado;
+            var ec=FACT_ESTADO_COLOR[_estadoVis]||FACT_ESTADO_COLOR["Borrador"];
+            return React.createElement("div",{
+              key:f.id,
+              style:{background:ec.bg,border:"1px solid "+ec.borderColor,borderRadius:7,marginBottom:4,padding:"10px 14px",display:"flex",justifyContent:"space-between",alignItems:"center",gap:8}
+            },
+              React.createElement("div",{style:{flex:1,minWidth:0}},
+                React.createElement("div",{style:{display:"flex",alignItems:"center",gap:7,marginBottom:2}},
+                  React.createElement("span",{style:{fontWeight:700,fontSize:13}},f.numero),
+                  React.createElement(TBdg,{tipo:f.tipo}),
+                  React.createElement(FBdg,{estado:f.estado,fechaVto:f.fechaVto}),
+                  f.poRef&&React.createElement("span",{style:{fontSize:10,background:"#fff8e6",border:"1px solid #f0c96e",borderRadius:4,padding:"1px 7px",color:"#7a4f00",fontWeight:700}},"PO: ",f.poRef)
+                ),
+                React.createElement("div",{style:{fontSize:11,color:C.muted,display:"flex",gap:6,flexWrap:"wrap"}},
+                  React.createElement("span",null,cl?.nombre||"—"),
+                  React.createElement("span",null,"·"),
+                  React.createElement("span",null,fmtD(f.fecha)),
+                  f.fechaVto&&React.createElement(React.Fragment,null,React.createElement("span",null,"·"),React.createElement("span",{style:{color:f.estado==="Vencida"?"#dc2626":"inherit"}},"Vto: ",fmtD(f.fechaVto))),
+                  f.observaciones&&React.createElement(React.Fragment,null,React.createElement("span",null,"·"),React.createElement("span",{style:{fontStyle:"italic"}},f.observaciones.slice(0,45)))
+                ),
+                React.createElement("div",{style:{fontSize:10,color:C.textSec,marginTop:2,display:"flex",gap:7}},
+                  "Base: ",React.createElement("strong",null,fmtE(totals.base)),
+                  " IVA: ",React.createElement("strong",null,fmtE(totals.iva)),
+                  " Total: ",React.createElement("strong",{style:{color:f.tipo==="Abono"?C.danger:C.text}},fmtE(totals.total))
+                )
+              ),
+              React.createElement("div",{style:{display:"flex",alignItems:"center",gap:4,flexShrink:0}},
+                React.createElement(Btn,{sm:true,variant:"ghost",onClick:function(){setMPrev({html:genPDFFactura({doc:f,cliente:cl,poRef:f.poRef}),nom:f.numero});}},React.createElement(Ic,{d:P.eye,sz:10})),
+                React.createElement(Btn,{sm:true,variant:"ghost",onClick:function(){abrirPDF(genPDFFactura({doc:f,cliente:cl,poRef:f.poRef}),(f.numero||"FA-001").split("-").slice(0,2).map(function(v,i){return i===1?v.padStart(3,"0"):v;}).join("-")+"-"+(f.fecha||"").substring(2,4));}},React.createElement(Ic,{d:P.dl,sz:10})," PDF"),
+                React.createElement(Btn,{sm:true,variant:"ghost",onClick:function(){setEditDoc({...f,lineas:[...(f.lineas||[])]});setEditMode("edit");setFechaWarn(null);setViewF("editor");}},React.createElement(Ic,{d:P.edit,sz:10})),
+                f.estado==="Borrador"&&React.createElement(Btn,{sm:true,variant:"ghost",onClick:function(){cambEst(f.id,"Enviada",f);},style:{color:C.primary}},React.createElement(Ic,{d:P.mail,sz:10})," Enviar"),
+                f.estado==="Enviada"&&React.createElement(Btn,{sm:true,variant:"success",onClick:function(){cambEst(f.id,"Cobrada",null);}},"✓ Cobrada"),
+
+                React.createElement(Btn,{sm:true,variant:"ghost",onClick:function(){if(window.confirm("¿Eliminar "+f.numero+"?"))eliminarF(f.id);},style:{color:C.danger}},React.createElement(Ic,{d:P.trash,sz:10}))
+              )
+            );
+          })
+        )
+      );
+    });
+  })()), viewF === "editor" && editDoc && (() => {
     const {
       base,
       iva,
@@ -8509,10 +8447,11 @@ function App() {
       padding: 30,
       color: C.muted
     }
-  }, "No hay ofertas."), fOfertas.map(o => {
-    const cl = gCL(o.clienteId);
-    const total = calcOfertaTotal(o.lineas || []);
-    return /*#__PURE__*/React.createElement("div", {
+  }, "No hay ofertas."), (function(){
+    var renderOfertaRow = function(o) {
+      const cl = gCL(o.clienteId);
+      const total = calcOfertaTotal(o.lineas || []);
+      return /*#__PURE__*/React.createElement("div", {
       key: o.id,
       style: {
         ...rowSt,
@@ -8680,7 +8619,41 @@ function App() {
       d: P.trash,
       sz: 10
     }))));
-  })), viewO === "resumen" && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("h2", {
+    }
+    var GRUPOS=[
+      {est:"Facturada",col:"#7c3aed",bg:"#f5f3ff",bd:"#c4b5fd"},
+      {est:"Aceptada", col:"#059669",bg:"#f0fdf4",bd:"#86efac"},
+      {est:"Enviada",  col:"#1c3e5e",bg:"#eff6ff",bd:"#93c5fd"},
+      {est:"Propuesta",col:"#d97706",bg:"#fffbeb",bd:"#fde68a"},
+      {est:"Borrador", col:"#6b7280",bg:"#f9fafb",bd:"#e5e7eb"},
+      {est:"Rechazada",col:"#dc2626",bg:"#fff1f2",bd:"#fca5a5"},
+      {est:"Anulada",  col:"#9ca3af",bg:"#f3f4f6",bd:"#d1d5db"}
+    ];
+    return GRUPOS.map(function(g){
+      var grupo=fOfertas.filter(function(o){return (o.estado||"Borrador")===g.est;});
+      if(grupo.length===0)return null;
+      var isOpen=!collapsedOfGrupos["of_"+g.est];
+      var totalGrupo=grupo.reduce(function(a,o){return a+calcOfertaTotal(o.lineas||[]);},0);
+      return React.createElement("div",{key:g.est,style:{marginBottom:10}},
+        React.createElement("div",{
+          onClick:function(){setCollapsedOfGrupos(function(p){var n=Object.assign({},p);n["of_"+g.est]=!n["of_"+g.est];return n;});},
+          style:{background:g.col,color:"#fff",borderRadius:isOpen?"8px 8px 0 0":"8px",padding:"7px 14px",display:"flex",justifyContent:"space-between",alignItems:"center",cursor:"pointer",userSelect:"none"}
+        },
+          React.createElement("div",{style:{display:"flex",gap:10,alignItems:"center"}},
+            React.createElement("span",{style:{fontWeight:700,fontSize:13}},g.est),
+            React.createElement("span",{style:{fontSize:11,background:"rgba(255,255,255,0.25)",borderRadius:10,padding:"1px 8px",fontWeight:700}},grupo.length)
+          ),
+          React.createElement("div",{style:{display:"flex",gap:10,alignItems:"center"}},
+            totalGrupo>0&&React.createElement("span",{style:{fontSize:12,opacity:.9}},fmtE(totalGrupo)),
+            React.createElement("span",{style:{fontSize:12,opacity:.7}},isOpen?"▲":"▼")
+          )
+        ),
+        isOpen&&React.createElement("div",{style:{border:"1px solid "+g.bd,borderTop:"none",borderRadius:"0 0 8px 8px",overflow:"hidden",background:g.bg}},
+          grupo.map(function(o){ return renderOfertaRow(o); })
+        )
+      );
+    });
+  })()), viewO === "resumen" && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("h2", {
     style: {
       fontSize: 17,
       fontWeight: 700,
@@ -11171,13 +11144,15 @@ function App() {
                   React.createElement("span",{style:{fontSize:12,opacity:.7}},isOpen?"▲":"▼")
                 )
               ),
-              isOpen&&React.createElement("div",{style:{border:"1px solid #dde2e8",borderTop:"none",borderRadius:"0 0 8px 8px",overflow:"hidden"}},
+              isOpen&&React.createElement("div",{style:{padding:"4px 0"}},
                 sups.map(function(s,i){
                   var eCol=s.estado==="aprobado"?"#1a9e7a":s.estado==="anulado"?"#d03030":"#d48a10";
                   var eLab=s.estado==="aprobado"?"Aprobado":s.estado==="anulado"?"Anulado":"Pendiente";
                   var precio=hsseCfg.preciosPorZona&&hsseCfg.preciosPorZona[s.zona]?hsseCfg.preciosPorZona[s.zona]:0;
                   var importe=Number(s.horasAdmin||s.horas||0)*precio;
-                  return React.createElement("div",{key:s.id,style:{background:i%2===0?"#fff":"#f5f8fc",padding:"10px 14px",borderBottom:i<sups.length-1?"1px solid #f0f0f0":"none"}},
+                  var hsseBgReg=s.estado==="aprobado"?"#f0fdf4":s.estado==="anulado"?"#fff1f2":"#fffbeb";
+                  var hsseBdReg=s.estado==="aprobado"?"1px solid #86efac":s.estado==="anulado"?"1px solid #fca5a5":"1px solid #fde68a";
+                  return React.createElement("div",{key:s.id,style:{background:hsseBgReg,border:hsseBdReg,borderRadius:8,marginBottom:4,padding:"10px 14px"}},
                     React.createElement("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8}},
                       React.createElement("div",{style:{flex:1}},
                         React.createElement("div",{style:{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap",marginBottom:3}},
@@ -11273,12 +11248,14 @@ function App() {
                   React.createElement("span",{style:{fontSize:12,opacity:.7}},isOpen?"▲":"▼")
                 )
               ),
-              isOpen&&React.createElement("div",{style:{border:"1px solid #dde2e8",borderTop:"none",borderRadius:"0 0 8px 8px",overflow:"hidden"}},
+              isOpen&&React.createElement("div",{style:{padding:"4px 0"}},
                 sups.map(function(s,i){
                   var precio=hsseCfg.preciosPorZona&&hsseCfg.preciosPorZona[s.zona]?hsseCfg.preciosPorZona[s.zona]:0;
                   var importe=Number(s.horasAdmin||s.horas||0)*precio;
                   var isPend=s.estado==="pendiente";
-                  return React.createElement("div",{key:s.id,style:{background:i%2===0?"#fff":"#f5f8fc",padding:"10px 14px",borderBottom:i<sups.length-1?"1px solid #f0f0f0":"none"}},
+                  var hsseBgRev=s.estado==="aprobado"?"#f0fdf4":s.estado==="anulado"?"#fff1f2":"#fffbeb";
+                  var hsseBdRev=s.estado==="aprobado"?"1px solid #86efac":s.estado==="anulado"?"1px solid #fca5a5":"1px solid #fde68a";
+                  return React.createElement("div",{key:s.id,style:{background:hsseBgRev,border:hsseBdRev,borderRadius:8,marginBottom:4,padding:"10px 14px"}},
                     React.createElement("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8}},
                       React.createElement("div",{style:{flex:1}},
                         React.createElement("div",{style:{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap",marginBottom:3}},
