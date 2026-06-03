@@ -3384,7 +3384,22 @@ function App() {
       })();
     }
   },[hsseSups,loading]);
-  useEffect(()=>{if(!loading)sv(SK.hsseCfg,Object.assign({},hsseCfg,{hist:hsseHist,infCounter:hsseInfCounter}));},[hsseCfg,hsseHist,hsseInfCounter,loading]);
+  useEffect(()=>{
+    if(!loading){
+      (async()=>{
+        try{
+          var fresh=await ld(SK.hsseCfg,null);
+          var freshHist=Array.isArray(fresh?.hist)?fresh.hist:[];
+          var myHistIds=new Set(hsseHist.map(h=>h.id));
+          // Protección: no perder informes que estén en Supabase pero no en estado local
+          var mergedHist=[...hsseHist,...freshHist.filter(h=>!myHistIds.has(h.id))];
+          await sv(SK.hsseCfg,Object.assign({},hsseCfg,{hist:mergedHist,infCounter:hsseInfCounter}));
+        }catch(e){
+          await sv(SK.hsseCfg,Object.assign({},hsseCfg,{hist:hsseHist,infCounter:hsseInfCounter}));
+        }
+      })();
+    }
+  },[hsseCfg,hsseHist,hsseInfCounter,loading]);
   // FIX v2.7.1: mantener referencia de estado actual para el handler visibilitychange
   useEffect(()=>{ window._naStateRef = { hsseSups, facturas }; },[hsseSups,facturas]);
   const saveConcs = async arr => {
@@ -3538,6 +3553,18 @@ function App() {
         id: r.id
       });
     });
+    // Proyectos nuevos creados por técnicos
+    proyectos.filter(p => p.creadoEn && p.creadoEn > lastLogin && p.creadoPor && p.creadoPor !== user?.nombre).forEach(p => {
+      items.push({
+        tipo: "proyecto_nuevo",
+        icon: "🏗",
+        label: "Nuevo proyecto",
+        texto: `${p.creadoPor} ha creado el proyecto: ${p.nombre || "—"}`,
+        sub: `${p.estacion || ""} ${p.zona ? "· "+p.zona : ""}`.trim(),
+        fecha: p.creadoEn,
+        id: p.id
+      });
+    });
     // Supervisiones HSSE nuevas
     hsseSups.filter(s => s.creadoEn && s.creadoEn > lastLogin).forEach(s => {
       items.push({
@@ -3603,7 +3630,9 @@ function App() {
     if (!fPr.nombre || !fPr.zona) return;
     setProyectos(p => [...p, {
       ...fPr,
-      id: `p${Date.now()}`
+      id: `p${Date.now()}`,
+      creadoEn: new Date().toISOString(),
+      creadoPor: user?.nombre || "admin"
     }]);
     if (fPr.estacion && !estaciones.includes(fPr.estacion)) setEstaciones(e => [...e, fPr.estacion].sort());
     setFPr(ep);
@@ -4319,7 +4348,9 @@ function App() {
     if (!fNuevoPrOfer.nombre || !fNuevoPrOfer.zona) return;
     const newP = {
       ...fNuevoPrOfer,
-      id: `p${Date.now()}`
+      id: `p${Date.now()}`,
+      creadoEn: new Date().toISOString(),
+      creadoPor: user?.nombre || "admin"
     };
     setProyectos(p => [...p, newP]);
     if (fNuevoPrOfer.estacion && !estaciones.includes(fNuevoPrOfer.estacion)) setEstaciones(e => [...e, fNuevoPrOfer.estacion].sort());
@@ -6502,7 +6533,7 @@ var factVencidas = facturas.filter(function(f){return f.fechaVto&&f.fechaVto<tod
       color: C.muted,
       marginTop: 1
     }
-  }, "Zona: ", p.zona, p.estacion && /*#__PURE__*/React.createElement("span", null, " \xB7 ES: ", p.estacion), p.clienteId && /*#__PURE__*/React.createElement("span", null, " \xB7 ", gCL(p.clienteId)?.nombre || "—"))), /*#__PURE__*/React.createElement("div", {
+  }, "Zona: ", p.zona, p.estacion && /*#__PURE__*/React.createElement("span", null, " \xB7 ES: ", p.estacion), p.clienteId && /*#__PURE__*/React.createElement("span", null, " \xB7 ", gCL(p.clienteId)?.nombre || "—"), p.creadoPor && /*#__PURE__*/React.createElement("span", {style:{fontStyle:"italic"}}, " \xB7 Creado por: ", p.creadoPor))), /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
       gap: 4
@@ -11300,9 +11331,14 @@ var factVencidas = facturas.filter(function(f){return f.fechaVto&&f.fechaVto<tod
                           React.createElement("span",null,fmtD(s.fecha)),
                           s.supervisor&&React.createElement("span",null,"· "+s.supervisor),
                           s.zona&&React.createElement("span",null,"· "+s.zona),
+                          s.empresa&&React.createElement("span",{style:{color:"#1c3e5e",fontWeight:600}},"· "+s.empresa),
                           React.createElement("span",null,"· "+((s.horasAdmin||s.horas)||"—")+"h"),
                           precio>0&&React.createElement("span",{style:{color:"#1a9e7a",fontWeight:600}},"· "+fmtE(importe)),
                           s.incidencias==="Sí"&&React.createElement("span",{style:{color:"#d03030",fontWeight:600}},"⚠ Incidencia")
+                        ),
+                        (s.motivoSupervision||s.comentarios)&&React.createElement("div",{style:{marginTop:4,fontSize:11,color:"#555e66",display:"flex",gap:12,flexWrap:"wrap"}},
+                          s.motivoSupervision&&React.createElement("span",null,"Motivo: "+s.motivoSupervision),
+                          s.comentarios&&React.createElement("span",{style:{fontStyle:"italic"}},"· "+s.comentarios)
                         )
                       ),
                       React.createElement("div",{style:{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:4}},
