@@ -4,7 +4,7 @@
 <style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:'Segoe UI',-apple-system,sans-serif;background:#f4f6f8;}</style>
 </head><body><div id='root'></div>
 <script>
-const SB_URL="https://lhmawivuxgekxleqvqle.supabase.co";const SB_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxobWF3aXZ1eGdla3hsZXF2cWxlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg2MTY1NTYsImV4cCI6MjA5NDE5MjU1Nn0.frbxipEXiMfxsiRjo9rilHDiXoc3BqYGxOh-Qgq0VhU";const SK_TABLE_MAP={"na-v20-proyectos":"na_proyectos","na-v20-registros":"na_registros","na-v21-facturas":"na_facturas","na-v21-ofertas":"na_ofertas","na-v20-clientes":"na_clientes","na-v21-conceptos-enc":"na_conceptos","na-v20-trabajadores":"na_trabajadores","na-v20-responsables":"na_responsables","na-v20-estaciones":"na_estaciones","na-v20-series":"na_series","na-v21-cfg-ofertas":"na_cfg_ofertas","na-v20-historico":"na_historico","na-last-login":"na_cfg_ofertas","na-v21-conceptos-activos":"na_cfg_ofertas","na-backup-auto":"na_cfg_ofertas","na-v25-hsse-sups":"na_registros","na-v25-hsse-cfg":"na_cfg_ofertas"};const _sbFetch=async(path,opts={})=>{const r=await fetch(SB_URL+path,{...opts,headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json',...(opts.headers||{})}});if(!r.ok){const e=await r.text();console.error('SB error',r.status,e);return null;}const ct=r.headers.get('content-type')||'';return ct.includes('json')?r.json():null;};window.storage={get:async(key)=>{const tbl=SK_TABLE_MAP[key];if(!tbl)return null;const rows=await _sbFetch('/rest/v1/'+tbl+'?id=eq.'+encodeURIComponent(key)+'&select=data',{method:'GET'});const lsBk=localStorage.getItem('na_bk_'+key);if(!rows||rows.length===0){// Supabase empty - check local backup
+const SB_URL="https://lhmawivuxgekxleqvqle.supabase.co";const SB_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxobWF3aXZ1eGdla3hsZXF2cWxlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg2MTY1NTYsImV4cCI6MjA5NDE5MjU1Nn0.frbxipEXiMfxsiRjo9rilHDiXoc3BqYGxOh-Qgq0VhU";const SK_TABLE_MAP={"na-v20-proyectos":"na_proyectos","na-v20-registros":"na_registros","na-v21-facturas":"na_facturas","na-v21-ofertas":"na_ofertas","na-v20-clientes":"na_clientes","na-v21-conceptos-enc":"na_conceptos","na-v20-trabajadores":"na_trabajadores","na-v20-responsables":"na_responsables","na-v20-estaciones":"na_estaciones","na-v20-series":"na_series","na-v21-cfg-ofertas":"na_cfg_ofertas","na-v20-historico":"na_historico","na-last-login":"na_cfg_ofertas","na-v21-conceptos-activos":"na_cfg_ofertas","na-backup-auto":"na_cfg_ofertas","na-v25-hsse-sups":"na_registros","na-v25-hsse-cfg":"na_cfg_ofertas","na-v25-hsse-hist":"na_cfg_ofertas"};const _sbFetch=async(path,opts={})=>{const r=await fetch(SB_URL+path,{...opts,headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json',...(opts.headers||{})}});if(!r.ok){const e=await r.text();console.error('SB error',r.status,e);return null;}const ct=r.headers.get('content-type')||'';return ct.includes('json')?r.json():null;};window.storage={get:async(key)=>{const tbl=SK_TABLE_MAP[key];if(!tbl)return null;const rows=await _sbFetch('/rest/v1/'+tbl+'?id=eq.'+encodeURIComponent(key)+'&select=data',{method:'GET'});const lsBk=localStorage.getItem('na_bk_'+key);if(!rows||rows.length===0){// Supabase empty - check local backup
 if(lsBk){console.warn('[NorAcua] Supabase vacío para '+key+', usando localStorage');return {key,value:lsBk};}return null;}// Ambos disponibles: si localStorage tiene MÁS items, la escritura Supabase falló (suspensión) — usar localStorage
 const sbData=rows[0].data;try{const sbArr=JSON.parse(sbData);const lsArr=lsBk?JSON.parse(lsBk):null;if(Array.isArray(sbArr)&&Array.isArray(lsArr)&&lsArr.length>sbArr.length){console.warn('[NorAcua] localStorage más reciente para '+key+' ('+lsArr.length+' vs '+sbArr.length+' items) — recuperando');return {key,value:lsBk};}}catch(e){}return {key,value:sbData};},set:async(key,value)=>{const tbl=SK_TABLE_MAP[key];if(!tbl)return null;// Save to localStorage backup first
 try{localStorage.setItem('na_bk_'+key,value);localStorage.setItem('na_bk_ts',new Date().toISOString());}catch(e){}await _sbFetch('/rest/v1/'+tbl,{method:'POST',body:JSON.stringify([{id:key,data:value,updated_at:new Date().toISOString()}]),headers:{'Prefer':'resolution=merge-duplicates,return=minimal'}});return {key,value};},delete:async(key)=>{const tbl=SK_TABLE_MAP[key];if(!tbl)return null;await _sbFetch('/rest/v1/'+tbl+'?id=eq.'+encodeURIComponent(key),{method:'DELETE'});return {key,deleted:true}}};
@@ -256,6 +256,10 @@ async function autoBackup(datos) {
         hist: datosCompactos['na-v25-hsse-cfg'].hist.map(e => { const {html:_h,...rest}=e; return {...rest,_htmlStripped:true}; })
       };
     }
+    // Strip HTML from hsseHist (separate key)
+    if (Array.isArray(datosCompactos['na-v25-hsse-hist'])) {
+      datosCompactos['na-v25-hsse-hist'] = datosCompactos['na-v25-hsse-hist'].map(e => { const {html:_h,...rest}=e; return {...rest,_htmlStripped:true}; });
+    }
     const snapshot = JSON.stringify({ fecha: fecha.toISOString(), datos: datosCompactos });
     const SB_URL_BK = "https://lhmawivuxgekxleqvqle.supabase.co";
     const SB_KEY_BK = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxobWF3aXZ1eGdla3hsZXF2cWxlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg2MTY1NTYsImV4cCI6MjA5NDE5MjU1Nn0.frbxipEXiMfxsiRjo9rilHDiXoc3BqYGxOh-Qgq0VhU";
@@ -302,7 +306,8 @@ const SK = {
   cfgOfertas: "na-v21-cfg-ofertas",
   cActivos: "na-v21-conceptos-activos",
   hsseSups: "na-v25-hsse-sups",
-  hsseCfg: "na-v25-hsse-cfg"
+  hsseCfg: "na-v25-hsse-cfg",
+  hsseHist: "na-v25-hsse-hist"
 };
 const ZONAS = ["CENTRO", "NORTE", "CATALUÑA", "BALEARES", "OTROS"];
 const IVA_OPS = [{v:0,l:"0%"},{v:4,l:"4%"},{v:10,l:"10%"},{v:21,l:"21%"}];
@@ -3178,13 +3183,13 @@ function App() {
         }]));
         setUsrs(merged);
         setHashesReady(true);
-        const [p, r, t, rs, h, cl, se, fa, es, of, co, hsSup, hsCfg] = await Promise.all([ld(SK.proj, []), ld(SK.regs, []), ld(SK.trabs, ["Daniel", "Jordi Santos", "Yennyfer Lemus", "Técnico NorAcua", "Carlos García"]), ld(SK.resps, [{
+        const [p, r, t, rs, h, cl, se, fa, es, of, co, hsSup, hsCfg, hsHistLoaded] = await Promise.all([ld(SK.proj, []), ld(SK.regs, []), ld(SK.trabs, ["Daniel", "Jordi Santos", "Yennyfer Lemus", "Técnico NorAcua", "Carlos García"]), ld(SK.resps, [{
           nombre: "Concepción Gutierrez",
           sexo: "F"
         }, {
           nombre: "Daniel Romero",
           sexo: "M"
-        }]), ld(SK.hist, []), ld(SK.clientes, CLIENTES_DEF), ld(SK.series, SERIES_DEF), ld(SK.facturas, []), ld(SK.estaciones, []), ld(SK.ofertas, []).then(v => Array.isArray(v) ? v : Object.values(v || {})), ld(SK.cfgOfertas, CFG_OFERTAS_DEF), ld(SK.hsseSups, []), ld(SK.hsseCfg, {tiposActividad:["Obra menor mantenimiento","Itinerante","Obra menor","Obra mayor"],preciosPorZona:{CENTRO:0,NORTE:0,"CATALUÑA":0,BALEARES:0,OTROS:0},tecnicosExternos:[],poAnual:"",clienteIdBP:""})]);
+        }]), ld(SK.hist, []), ld(SK.clientes, CLIENTES_DEF), ld(SK.series, SERIES_DEF), ld(SK.facturas, []), ld(SK.estaciones, []), ld(SK.ofertas, []).then(v => Array.isArray(v) ? v : Object.values(v || {})), ld(SK.cfgOfertas, CFG_OFERTAS_DEF), ld(SK.hsseSups, []), ld(SK.hsseCfg, {tiposActividad:["Obra menor mantenimiento","Itinerante","Obra menor","Obra mayor"],preciosPorZona:{CENTRO:0,NORTE:0,"CATALUÑA":0,BALEARES:0,OTROS:0},tecnicosExternos:[],poAnual:"",clienteIdBP:""}), ld(SK.hsseHist, [])]);
         setProyectos(p);
         setRegistros(r);
         // FIX v2.7.1: garantizar siempre los 5 trabajadores base aunque Supabase tenga una lista antigua
@@ -3239,7 +3244,22 @@ function App() {
         Object.entries(snapKeys).forEach(([k, v]) => { if (Array.isArray(v) && v.length > 0) updateRefSnapshot(k, v); });
         setCfgOfertas(co);
         if(Array.isArray(hsSup))setHsseSups(hsSup);
-        if(hsCfg&&typeof hsCfg==="object"){const {hist:_h,...cfgRest}=hsCfg;setHsseCfg(c=>({...c,...cfgRest}));if(Array.isArray(_h))setHsseHist(_h);}
+        if(hsCfg&&typeof hsCfg==="object"){
+          // Extraer solo config (sin hist — ahora va en clave separada)
+          const {hist:_oldHist,infCounter:_cnt,...cfgRest}=hsCfg;
+          setHsseCfg(c=>({...c,...cfgRest}));
+          if(_cnt&&_cnt>1) setHsseInfCounter(_cnt);
+          // Hist: usar la clave separada, pero migrar desde formato antiguo si está vacía
+          const histToUse=Array.isArray(hsHistLoaded)&&hsHistLoaded.length>0
+            ? hsHistLoaded
+            : (Array.isArray(_oldHist)&&_oldHist.length>0 ? _oldHist : []);
+          setHsseHist(histToUse);
+          // Si migramos desde formato antiguo, guardar en nueva clave
+          if(Array.isArray(_oldHist)&&_oldHist.length>0&&!(Array.isArray(hsHistLoaded)&&hsHistLoaded.length>0)){
+            console.log('[NorAcua] Migrando hsseHist a clave separada...');
+            setTimeout(()=>sv(SK.hsseHist,_oldHist),2000);
+          }
+        } else if(Array.isArray(hsHistLoaded)&&hsHistLoaded.length>0){ setHsseHist(hsHistLoaded); }
       } catch (e) {
         console.error(e);
         setHashesReady(true);
@@ -3255,7 +3275,7 @@ function App() {
       const bkData = {};
       const bkKeys = ['na-v20-proyectos','na-v20-registros','na-v21-facturas','na-v21-ofertas',
         'na-v20-clientes','na-v20-trabajadores','na-v20-responsables','na-v20-estaciones','na-v20-series',
-        'na-v25-hsse-sups','na-v25-hsse-cfg','na-v20-historico','na-v21-conceptos-activos','na-v20-usuarios'];
+        'na-v25-hsse-sups','na-v25-hsse-cfg','na-v25-hsse-hist','na-v20-historico','na-v21-conceptos-activos','na-v20-usuarios'];
       for (const k of bkKeys) {
         const r = await window.storage.get(k).catch(()=>null);
         if (r?.value) { try { bkData[k] = JSON.parse(r.value); } catch { bkData[k] = r.value; } }
@@ -3302,7 +3322,7 @@ function App() {
         const bkData = {};
         const bkKeys = ['na-v20-proyectos','na-v20-registros','na-v21-facturas','na-v21-ofertas',
           'na-v20-clientes','na-v20-trabajadores','na-v20-responsables','na-v20-estaciones','na-v20-series',
-          'na-v25-hsse-sups','na-v25-hsse-cfg','na-v20-historico','na-v21-conceptos-activos','na-v20-usuarios'];
+          'na-v25-hsse-sups','na-v25-hsse-cfg','na-v25-hsse-hist','na-v20-historico','na-v21-conceptos-activos','na-v20-usuarios'];
         for (const k of bkKeys) {
           const r = await window.storage.get(k).catch(()=>null);
           if (r?.value) { try { bkData[k] = JSON.parse(r.value); } catch { bkData[k] = r.value; } }
@@ -3385,21 +3405,22 @@ function App() {
     }
   },[hsseSups,loading]);
   useEffect(()=>{
+    if(!loading) sv(SK.hsseCfg, Object.assign({},hsseCfg,{infCounter:hsseInfCounter}));
+  },[hsseCfg,hsseInfCounter,loading]);
+  // hsseHist: clave separada — merge para no perder informes de otras sesiones
+  useEffect(()=>{
     if(!loading){
       (async()=>{
         try{
-          var fresh=await ld(SK.hsseCfg,null);
-          var freshHist=Array.isArray(fresh?.hist)?fresh.hist:[];
-          var myHistIds=new Set(hsseHist.map(h=>h.id));
-          // Protección: no perder informes que estén en Supabase pero no en estado local
-          var mergedHist=[...hsseHist,...freshHist.filter(h=>!myHistIds.has(h.id))];
-          await sv(SK.hsseCfg,Object.assign({},hsseCfg,{hist:mergedHist,infCounter:hsseInfCounter}));
-        }catch(e){
-          await sv(SK.hsseCfg,Object.assign({},hsseCfg,{hist:hsseHist,infCounter:hsseInfCounter}));
-        }
+          const fresh=await ld(SK.hsseHist,null);
+          const freshHist=Array.isArray(fresh)?fresh:[];
+          const myIds=new Set(hsseHist.map(h=>h.id));
+          const merged=[...hsseHist,...freshHist.filter(h=>!myIds.has(h.id))];
+          await sv(SK.hsseHist,merged);
+        }catch(e){ await sv(SK.hsseHist,hsseHist); }
       })();
     }
-  },[hsseCfg,hsseHist,hsseInfCounter,loading]);
+  },[hsseHist,loading]);
   // FIX v2.7.1: mantener referencia de estado actual para el handler visibilitychange
   useEffect(()=>{ window._naStateRef = { hsseSups, facturas }; },[hsseSups,facturas]);
   const saveConcs = async arr => {
@@ -3471,7 +3492,7 @@ function App() {
         const bkData = {};
         const bkKeys = ['na-v20-proyectos','na-v20-registros','na-v21-facturas','na-v21-ofertas',
           'na-v20-clientes','na-v20-trabajadores','na-v20-responsables','na-v20-estaciones','na-v20-series',
-          'na-v25-hsse-sups','na-v25-hsse-cfg','na-v20-historico','na-v21-conceptos-activos','na-v20-usuarios'];
+          'na-v25-hsse-sups','na-v25-hsse-cfg','na-v25-hsse-hist','na-v20-historico','na-v21-conceptos-activos','na-v20-usuarios'];
         for (const k of bkKeys) {
           const r = await window.storage.get(k).catch(()=>null);
           if (r?.value) { try { bkData[k] = JSON.parse(r.value); } catch { bkData[k] = r.value; } }
@@ -5051,7 +5072,26 @@ var factVencidas = facturas.filter(function(f){return f.fechaVto&&f.fechaVto<tod
           KCard({label:"Supervisiones sin aprobar",value:hssePend.length,color:hssePend.length>0?"#d48a10":"#1a9e7a",onClick:hssePend.length>0?function(){setModulo("hsse");setViewH("revision");}:null}),
           KCard({label:"Aprobadas sin facturar",value:hsseNoFact.length,color:hsseNoFact.length>0?"#1c3e5e":"#1a9e7a",sub:hsseHorasNF+"h",detail:hsseImporteNF>0?fmtE(hsseImporteNF)+" pendiente":null,onClick:hsseNoFact.length>0?function(){setModulo("hsse");setViewH("informes");}:null}),
           KCard({label:"Informes HSSE sin facturar",value:hsseHist.filter(function(h){return !h.facturado;}).length,color:"#1c3e5e",onClick:function(){setModulo("hsse");setViewH("hssehist");}}),
-          KCard({label:"Informes HSSE facturados",value:hsseHist.filter(function(h){return h.facturado;}).length,color:"#1a9e7a"})
+          (function(){
+            var hFact=hsseHist.filter(function(h){return h.facturado;});
+            var totalImp=hFact.reduce(function(a,h){return a+Number(h.importeTotal||0);},0);
+            var media=hFact.length>0?totalImp/hFact.length:0;
+            var proy12=0;
+            if(hFact.length>=2){
+              var ds=hFact.map(function(h){return h.creadoEn||h.fecha||"";}).filter(Boolean).sort();
+              var meses=Math.max(1,(new Date(ds[ds.length-1])-new Date(ds[0]))/(1000*60*60*24*30.44));
+              proy12=(totalImp/meses)*12;
+            }else if(hFact.length===1){
+              proy12=totalImp*12;
+            }
+            return KCard({
+              label:"Informes HSSE facturados",
+              value:hFact.length,
+              color:"#1a9e7a",
+              sub:hFact.length>0?"Media: "+fmtE(media):null,
+              detail:proy12>0?"Proyección 12m: "+fmtE(Math.round(proy12)):null
+            });
+          })()
         ),
         /* Row 3 — Facturación */
         React.createElement("div",{style:{marginBottom:6}},
