@@ -3272,11 +3272,9 @@ function App() {
         const cur = window._naStateRef;
         if (!cur) return;
         console.log('[NorAcua] Página visible tras suspensión — re-sincronizando con Supabase...');
-        if (Array.isArray(cur.hsseSups) && cur.hsseSups.length > 0) sv('na-v25-hsse-sups', cur.hsseSups);
-        if (Array.isArray(cur.registros) && cur.registros.length > 0) sv('na-v20-registros', cur.registros);
-        if (Array.isArray(cur.proyectos) && cur.proyectos.length > 0) sv('na-v20-proyectos', cur.proyectos);
-        if (Array.isArray(cur.facturas)  && cur.facturas.length  > 0) sv('na-v21-facturas', cur.facturas);
-        if (Array.isArray(cur.trabs)     && cur.trabs.length     > 0) sv('na-v20-trabajadores', cur.trabs);
+        // Solo facturas (exclusivo admin — Ignacio o Daniel, no técnicos)
+        // hsseSups, registros y proyectos son datos compartidos → merge en useEffect, no push ciego
+        if (Array.isArray(cur.facturas) && cur.facturas.length > 0) sv('na-v21-facturas', cur.facturas);
       } else if (document.visibilityState === 'hidden') {
         window._naWasHidden = true;
       }
@@ -3286,7 +3284,18 @@ function App() {
   }, []);
   useEffect(() => {
     if (!loading) {
-      sv(SK.proj, proyectos);
+      (async () => {
+        try {
+          const fresh = await ld(SK.proj, null);
+          if (fresh && Array.isArray(fresh) && fresh.length > 0) {
+            const myIds = new Set(proyectos.map(p => p.id));
+            const merged = [...proyectos, ...fresh.filter(p => !myIds.has(p.id))];
+            await sv(SK.proj, merged);
+          } else {
+            await sv(SK.proj, proyectos);
+          }
+        } catch(e) { await sv(SK.proj, proyectos); }
+      })();
       // Auto-backup when critical data changes (debounced 5s)
       clearTimeout(window._bkTimer);
       window._bkTimer = setTimeout(async () => {
@@ -3358,10 +3367,26 @@ function App() {
   useEffect(() => {
     if (!loading) sv(SK.cfgOfertas, cfgOfertas);
   }, [cfgOfertas, loading]);
-  useEffect(()=>{if(!loading)sv(SK.hsseSups,hsseSups);},[hsseSups,loading]);
+  useEffect(()=>{
+    if(!loading){
+      (async()=>{
+        try{
+          // Merge seguro: mi versión gana para los que ya tengo, añado los nuevos de otros usuarios
+          const fresh=await ld(SK.hsseSups,null);
+          if(fresh&&Array.isArray(fresh)&&fresh.length>0){
+            const myIds=new Set(hsseSups.map(s=>s.id));
+            const merged=[...hsseSups,...fresh.filter(s=>!myIds.has(s.id))];
+            await sv(SK.hsseSups,merged);
+          }else{
+            await sv(SK.hsseSups,hsseSups);
+          }
+        }catch(e){await sv(SK.hsseSups,hsseSups);}
+      })();
+    }
+  },[hsseSups,loading]);
   useEffect(()=>{if(!loading)sv(SK.hsseCfg,Object.assign({},hsseCfg,{hist:hsseHist,infCounter:hsseInfCounter}));},[hsseCfg,hsseHist,hsseInfCounter,loading]);
   // FIX v2.7.1: mantener referencia de estado actual para el handler visibilitychange
-  useEffect(()=>{ window._naStateRef = { hsseSups, registros, proyectos, facturas, trabs }; },[hsseSups,registros,proyectos,facturas,trabs]);
+  useEffect(()=>{ window._naStateRef = { hsseSups, facturas }; },[hsseSups,facturas]);
   const saveConcs = async arr => {
     setConcs(arr);
     await sv(SK.cActivos, arr.map(c => ({id: c.id, activo: c.activo !== false})));
@@ -4551,9 +4576,7 @@ function App() {
       // FIX v2.7.1: guardar estado antes de cerrar sesión (fire-and-forget)
       const cur = window._naStateRef;
       if (cur) {
-        if (Array.isArray(cur.hsseSups) && cur.hsseSups.length > 0) sv('na-v25-hsse-sups', cur.hsseSups);
-        if (Array.isArray(cur.registros) && cur.registros.length > 0) sv('na-v20-registros', cur.registros);
-        if (Array.isArray(cur.proyectos) && cur.proyectos.length > 0) sv('na-v20-proyectos', cur.proyectos);
+        // No push ciego de datos compartidos — el merge en useEffect es el mecanismo correcto
       }
       setFase("login"); setUser(null); setAutoLogoutWarn(false);
       alert("Sesión cerrada automáticamente por inactividad (30 min).");
@@ -9587,7 +9610,12 @@ var factVencidas = facturas.filter(function(f){return f.fechaVto&&f.fechaVto<tod
       style: { width: "100%", padding: "8px 11px", border: "1px solid " + C.border, borderRadius: 6, fontSize: 13, fontFamily: "inherit", background: C.inputBg, color: C.text }
     },
       /*#__PURE__*/React.createElement("option", { value: "" }, "— Seleccionar —"),
-      resps.map(r => /*#__PURE__*/React.createElement("option", { key: r.id || r.nombre, value: r.nombre }, r.nombre))
+      (function(){
+              var allNames = resps.map(function(r){return typeof r==="object"?r.nombre:r;}).filter(Boolean);
+              // Añadir responsables usados en proyectos que no estén ya en la lista
+              proyectos.forEach(function(p){if(p.responsableBP&&!allNames.includes(p.responsableBP))allNames.push(p.responsableBP);});
+              return allNames.sort().map(function(n){return /*#__PURE__*/React.createElement("option",{key:n,value:n},n);});
+            })()
     )
   ), /*#__PURE__*/React.createElement("div", {
     style: {
@@ -9713,7 +9741,12 @@ var factVencidas = facturas.filter(function(f){return f.fechaVto&&f.fechaVto<tod
       style: { width: "100%", padding: "8px 11px", border: "1px solid " + C.border, borderRadius: 6, fontSize: 13, fontFamily: "inherit", background: C.inputBg, color: C.text }
     },
       /*#__PURE__*/React.createElement("option", { value: "" }, "— Seleccionar —"),
-      resps.map(r => /*#__PURE__*/React.createElement("option", { key: r.id || r.nombre, value: r.nombre }, r.nombre))
+      (function(){
+              var allNames = resps.map(function(r){return typeof r==="object"?r.nombre:r;}).filter(Boolean);
+              // Añadir responsables usados en proyectos que no estén ya en la lista
+              proyectos.forEach(function(p){if(p.responsableBP&&!allNames.includes(p.responsableBP))allNames.push(p.responsableBP);});
+              return allNames.sort().map(function(n){return /*#__PURE__*/React.createElement("option",{key:n,value:n},n);});
+            })()
     )
   ), /*#__PURE__*/React.createElement("div", {
     style: {
