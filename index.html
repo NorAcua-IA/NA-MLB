@@ -3877,6 +3877,7 @@ function App() {
     const rs = registros.filter(r => {
       if (r.estado !== "aprobado") return false;
       if (r.ofertaCodigo) return false; // Las ofertadas van por el camino oferta→factura, no por informe
+      if (r.facturado) return false;    // Ya facturadas — excluir para no duplicar
       // Solo actividades certificadas: líneas aprobadas por admin O marcadas directamente
       const tieneCertif = r.esGrupo
         ? (r.lineasGrupo || []).some(l => l.certifAprobada)
@@ -3894,9 +3895,12 @@ function App() {
       return r.fecha >= fInf.desde && r.fecha <= fInf.hasta;
     });
     if (!rs.length) {
-      alert("No hay actividades certificadas en este período.");
+      const yaFact = registros.filter(r => r.facturado && r.fecha >= fInf.desde && r.fecha <= fInf.hasta).length;
+      alert("No hay actividades certificadas pendientes de facturar en este período." +
+        (yaFact > 0 ? `\n\n(${yaFact} actividad${yaFact > 1 ? "es" : ""} ya facturada${yaFact > 1 ? "s" : ""} excluida${yaFact > 1 ? "s" : ""})` : ""));
       return;
     }
+    const yaFacturadas = registros.filter(r => r.facturado && r.fecha >= fInf.desde && r.fecha <= fInf.hasta && (!fInf.pid || r.proyectoId === fInf.pid)).length;
     const total = rs.reduce((s, r) => s + (gT(r) || 0), 0);
     const fmtInfD = d => d ? d.replace(/-/g,"").substring(2) : "";
     const nomCliente = proy ? (proy.po || proy.nombre) : "Global";
@@ -3910,6 +3914,9 @@ function App() {
       todosProyectos: proyectos
     });
     guardarHist(html, nom, "periodo", proy ? proy.nombre : "Todos los proyectos", `${fmtD(fInf.desde)} → ${fmtD(fInf.hasta)}`, total, proy?.id || null, rs.map(r => r.id));
+    if (yaFacturadas > 0) {
+      console.info(`[NorAcua] Informe generado — ${yaFacturadas} actividad(es) ya facturada(s) excluida(s) del período`);
+    }
     setMPrev({
       html,
       nom
@@ -3991,7 +3998,9 @@ function App() {
       refAbono: "",
       lineas,
       estado: "Borrador",
-      poRef
+      poRef,
+      _regIds: regIds,
+      _histId: inf.id
     });
     setEditMode("new");
     setHistorico(h => h.map(x => x.id === inf.id ? {
@@ -4082,12 +4091,22 @@ function App() {
     if (fechaWarn || !editDoc.clienteId || !editDoc.serieId || !editDoc.lineas.length) return;
     if (editMode === "new") {
       setSeries(incCont(series, editDoc.serieId, editDoc.tipo, editDoc.fecha));
+      const { _regIds, _histId, ...cleanDoc } = editDoc;
       setFacturas(f => [{
-        ...editDoc,
+        ...cleanDoc,
         id: `f${Date.now()}`,
         creadoEn: new Date().toISOString()
       }, ...f]);
-    } else setFacturas(f => f.map(x => x.id === editDoc.id ? editDoc : x));
+      if (_regIds && _regIds.length > 0) {
+        const factNum = editDoc.numero || "—";
+        setRegistros(regs => regs.map(r =>
+          _regIds.includes(r.id) ? { ...r, facturado: true, facturaRef: factNum } : r
+        ));
+      }
+    } else {
+      const { _regIds: _r, _histId: _h, ...cleanDocEdit } = editDoc;
+      setFacturas(f => f.map(x => x.id === cleanDocEdit.id ? cleanDocEdit : x));
+    }
     setViewF("lista");
     setEditDoc(null);
     setFechaWarn(null);
@@ -5324,6 +5343,7 @@ var factVencidas = facturas.filter(function(f){return f.fechaVto&&f.fechaVto<tod
     }), r.estado === "certificado" && /*#__PURE__*/React.createElement("span", {
       style: { fontSize: 10, color: "#0891b2", fontWeight: 600, background: "#e0f2fe", padding: "2px 6px", borderRadius: 4 }
     }, r.esGrupo ? ("Cert: " + (r.lineasGrupo||[]).map(l => l.udsCertificadas ?? l.cantidad).join("+") + " uds") : ("Cert: " + (r.udsCertificadas ?? r.cantidad) + " uds")),
+    r.facturado && /*#__PURE__*/React.createElement("span",{style:{fontSize:10,color:"#7c3aed",fontWeight:700,background:"#f5f3ff",border:"1px solid #c4b5fd",padding:"2px 6px",borderRadius:4}},"💰 "+(r.facturaRef||"Facturado")),
     isAdmin && gT(r) != null && /*#__PURE__*/React.createElement("span", {
       style: {
         fontWeight: 700,
@@ -5557,7 +5577,8 @@ var factVencidas = facturas.filter(function(f){return f.fechaVto&&f.fechaVto<tod
       }
     }, "\"", r.observaciones, "\"")), /*#__PURE__*/React.createElement(EBdg, {
       estado: r.estado
-    }), r.esGrupo && r.estadoCertif && /*#__PURE__*/React.createElement("select", {
+    }), r.facturado && /*#__PURE__*/React.createElement("span",{style:{fontSize:10,color:"#7c3aed",fontWeight:700,background:"#f5f3ff",border:"1px solid #c4b5fd",padding:"2px 6px",borderRadius:4}},"💰 "+(r.facturaRef||"Facturado")),
+    r.esGrupo && r.estadoCertif && /*#__PURE__*/React.createElement("select", {
       value: r.estadoCertif,
       onChange: e => setRegistros(rs => rs.map(x => x.id === r.id ? { ...x, estadoCertif: e.target.value } : x)),
       style: { fontSize: 10, padding: "1px 6px", borderRadius: 4, border: "1px solid " + C.border, fontFamily: "inherit", background: r.estadoCertif === "finalizado" ? "#d1fae5" : "#fef9c3", color: r.estadoCertif === "finalizado" ? "#065f46" : "#92400e", fontWeight: 700, cursor: "pointer" }
