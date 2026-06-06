@@ -2890,7 +2890,7 @@ function genPDFOferta({
     c
   }) => {
     const sub = calcOfertaLinea(l);
-    return `<tr><td>${c?.id ? `${c.id} - ` : ""}${c?.nombre || l.conceptoId}</td><td style="text-align:center">${l.cantidad || 1}</td><td style="text-align:right">${fmtN(l.precioUnit)}${Number(l.descuento) > 0 ? ` (-${l.descuento}%)` : ""}</td><td style="text-align:right;font-weight:700">${fmtN(sub)}</td></tr>`;
+    return `<tr><td>${c?.id ? `${c.id} - ` : ""}${c?.nombre || l.conceptoId}${l.comentario ? `<div style="font-size:10px;color:#666;margin-top:2px">${l.comentario}</div>` : ""}</td><td style="text-align:center">${l.cantidad || 1}</td><td style="text-align:right">${fmtN(l.precioUnit)}${Number(l.descuento) > 0 ? ` (-${l.descuento}%)` : ""}</td><td style="text-align:right;font-weight:700">${fmtN(sub)}</td></tr>`;
   }).join("")}`).join("");
   return `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
 @page{size:A4;margin:14mm 14mm 10mm 14mm}
@@ -3050,6 +3050,8 @@ function App() {
   const [mReg, setMReg] = useState(false);
   const [regLineas, setRegLineas] = useState([]);
   const [collapsedIds, setCollapsedIds] = useState(new Set());
+  const [assigningOfertaGk, setAssigningOfertaGk] = useState(null);
+  const [assigningOfertaSel, setAssigningOfertaSel] = useState([]);
   const toggleCard = id => setCollapsedIds(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
   const [collapsedHsseMeses, setCollapsedHsseMeses] = useState({});
   const [collapsedFactMeses, setCollapsedFactMeses] = useState({});
@@ -3897,7 +3899,7 @@ function App() {
     const proy = fInf.pid ? gP(fInf.pid) : null;
     const rs = registros.filter(r => {
       if (r.estado !== "aprobado") return false;
-      if (r.ofertaCodigo) return false; // Las ofertadas van por el camino oferta→factura, no por informe
+      if (r.ofertaCodigo || (r.ofertaCodigos && r.ofertaCodigos.length > 0)) return false; // ofertadas no entran en informe mensual
       if (r.facturado) return false;    // Ya facturadas — excluir para no duplicar
       // Solo actividades certificadas: líneas aprobadas por admin O marcadas directamente
       const tieneCertif = r.esGrupo
@@ -4124,6 +4126,17 @@ function App() {
           _regIds.includes(r.id) ? { ...r, facturado: true, facturaRef: factNum } : r
         ));
       }
+      // Marcar también las actividades vinculadas por ofertaCodigo
+      if (cleanDoc.ofertaRef || cleanDoc.observaciones?.startsWith("Ref. oferta:")) {
+        const factNum2 = editDoc.numero || "—";
+        const ofertaCode = cleanDoc.ofertaRef || "";
+        if (ofertaCode) {
+          setRegistros(regs => regs.map(r =>
+            (r.ofertaCodigo === ofertaCode || (r.ofertaCodigos || []).includes(ofertaCode)) && !r.facturado
+              ? { ...r, facturado: true, facturaRef: factNum2 } : r
+          ));
+        }
+      }
     } else {
       const { _regIds: _r, _histId: _h, ...cleanDocEdit } = editDoc;
       setFacturas(f => f.map(x => x.id === cleanDocEdit.id ? cleanDocEdit : x));
@@ -4274,7 +4287,8 @@ function App() {
         cantidad: 1,
         precioUnit: pu,
         descuento: 0,
-        total: pu
+        total: pu,
+        comentario: ""
       }]
     }));
   };
@@ -4954,24 +4968,11 @@ function App() {
       /* ── KPI CALCULATIONS ── */
       var todayStr = today();
 
-      /* 1. Actividades pendientes certificar */
-      var pendCert = registros.filter(function(r){return r.estado==="pendiente";});
-      var pendCertCount = pendCert.length;
-
-      /* 2. Importe pendiente certificación */
-      var pendImporte = pendCert.reduce(function(acc,r){
-        if(r.esGrupo && r.lineasGrupo){
-          return acc + r.lineasGrupo.reduce(function(a,l){
-            var c = cfgOfertas && cfgOfertas.flatMap && cfgOfertas.flatMap(function(cap){return cap.items||[];}).find(function(x){return x.id===l.conceptoId;});
-            var p = proyectos.find(function(x){return x.id===r.proyectoId;});
-            var pu = l.precioManual!=null?l.precioManual:(c&&p&&c.p&&c.p[p.zona]?c.p[p.zona]:0);
-            var cant = l.cantidad||1;
-            var dto = Number(l.descuento)||0;
-            return a + pu*cant*(1-dto/100);
-          },0);
-        }
-        return acc;
-      },0);
+      var pendCert=registros.filter(function(r){if(r.estado!=="aprobado")return false;if(r.facturado)return false;var lineas=r.lineasGrupo||[];var allAprob=lineas.length>0&&lineas.every(function(l){return l.certifAprobada;});return !(r.estadoCertif==="finalizado"||allAprob);});
+      var pendCertCount=pendCert.length;
+      var pendImporte=pendCert.reduce(function(acc,r){return acc+(gT(r)||0);},0);
+      var certSinInforme=registros.filter(function(r){if(r.facturado)return false;var lineas=r.lineasGrupo||[];var allAprob=lineas.length>0&&lineas.every(function(l){return l.certifAprobada;});return (r.estadoCertif==="finalizado"||allAprob)&&r.estado==="aprobado";});
+      var certImporte=certSinInforme.reduce(function(acc,r){return acc+(gT(r)||0);},0);
 
       /* 3. Rechazadas sin resolver */
       var rechazadas = registros.filter(function(r){return r.estado==="rechazado";});
@@ -5032,7 +5033,7 @@ var factVencidas = facturas.filter(function(f){return f.fechaVto&&f.fechaVto<tod
         ),
         React.createElement("div",{style:{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10,marginBottom:16}},
           KCard({label:"Pendientes de certificar",value:pendCertCount,color:pendCertCount>0?"#d48a10":"#1a9e7a",detail:pendCertCount>0?"Revisar en pestaña Revisión":null,onClick:pendCertCount>0?function(){setModulo("trabajos");setView("revision");}:null}),
-          KCard({label:"Importe pend. certificación",value:fmtE(pendImporte),color:"#1c3e5e",sub:null}),
+          (function(){return KCard({label:"Pend. certificar",value:pendCertCount,color:pendCertCount>0?"#d48a10":"#1a9e7a",sub:pendCertCount>0?fmtE(pendImporte)+" sin certif.":null,detail:certSinInforme.length>0?certSinInforme.length+" certif. · "+fmtE(certImporte)+" listos":null,onClick:function(){setModulo("trabajos");setView("revision");}});})(),
           KCard({label:"Rechazadas sin resolver",value:rechazadas.length,color:rechazadas.length>0?"#d03030":"#1a9e7a",detail:rechazadas.length>0?"Requieren atención":null,onClick:rechazadas.length>0?function(){setModulo("trabajos");setView("revision");}:null}),
           (function(){var actPendRev=registros.filter(function(r){return r.estado==="pendiente";}).length;return KCard({label:"Actividades pendientes de revisar",value:actPendRev,color:actPendRev>0?"#d48a10":"#1a9e7a",detail:actPendRev>0?"Revisar en pestaña Revisión":null,onClick:actPendRev>0?function(){setModulo("trabajos");setView("revision");}:null});})()
         ),
@@ -5074,16 +5075,9 @@ var factVencidas = facturas.filter(function(f){return f.fechaVto&&f.fechaVto<tod
           KCard({label:"Informes HSSE sin facturar",value:hsseHist.filter(function(h){return !h.facturado;}).length,color:"#1c3e5e",onClick:function(){setModulo("hsse");setViewH("hssehist");}}),
           (function(){
             var hFact=hsseHist.filter(function(h){return h.facturado;});
-            var totalImp=hFact.reduce(function(a,h){return a+Number(h.importeTotal||0);},0);
+            var totalImp=hFact.reduce(function(a,h){return a+Number(h.totalImporte||h.importeTotal||0);},0);
             var media=hFact.length>0?totalImp/hFact.length:0;
-            var proy12=0;
-            if(hFact.length>=2){
-              var ds=hFact.map(function(h){return h.creadoEn||h.fecha||"";}).filter(Boolean).sort();
-              var meses=Math.max(1,(new Date(ds[ds.length-1])-new Date(ds[0]))/(1000*60*60*24*30.44));
-              proy12=(totalImp/meses)*12;
-            }else if(hFact.length===1){
-              proy12=totalImp*12;
-            }
+            var proy12=media*12;
             return KCard({
               label:"Informes HSSE facturados",
               value:hFact.length,
@@ -5266,15 +5260,33 @@ var factVencidas = facturas.filter(function(f){return f.fechaVto&&f.fechaVto<tod
       padding: 30,
       color: C.muted
     }
-  }, "No hay actividades con estos filtros."), rFiltrados.map(r => {
+  }, "No hay actividades con estos filtros."), (function(){var _bN={},_nO=[];rFiltrados.forEach(function(r){var p=gP(r.proyectoId);var gk=(p?(p.nombre||"")+"|"+(p.estacion||""):(r.proyectoId||"_sin")).trim();if(!_bN[gk]){_bN[gk]=[];_nO.push(gk);}_bN[gk].push(r);});var _sArr=[];_nO.forEach(function(gk){_bN[gk].forEach(function(r){_sArr.push(r);});});return _sArr;})().map((r, _sIdx, _sArr) => {
+    const _isNewProyS = (function(){var p=gP(r.proyectoId);var gk=(p?(p.nombre||"")+"|"+(p.estacion||""):(r.proyectoId||"_sin")).trim();return _sArr.findIndex(function(x){var px=gP(x.proyectoId);return(px?(px.nombre||"")+"|"+(px.estacion||""):(x.proyectoId||"_sin")).trim()===gk;})===_sIdx;})();
     const proy = gP(r.proyectoId);
     const _collapsed = collapsedIds.has(r.id);
     const _nItems = r.esGrupo ? (r.lineasGrupo?.length || 0) : 1;
     const _title = r.esGrupo ? ("GRUPO · " + _nItems + " actividades") : (gC(r.conceptoId)?.nombre || "—");
     const _hdr = regHdrStyle(r.estado);
-    return /*#__PURE__*/React.createElement("div", {
-      key: r.id,
-      style: { ...rowSt, padding: 0, overflow: "hidden", border: "1px solid " + _hdr.border }
+    const _prS = gP(r.proyectoId);
+    const _prSKey = (_prS?((_prS.nombre||"")+"|"+(_prS.estacion||"")):(r.proyectoId||"_sin")).trim();
+    const _prSRegs = _isNewProyS ? _sArr.filter(function(x){var px=gP(x.proyectoId);return((px?((px.nombre||"")+"|"+(px.estacion||"")):(x.proyectoId||"_sin")).trim())===_prSKey;}) : [];
+    const _prSTotal = _prSRegs.reduce(function(a,x){return a+(gT(x)||0);},0);
+    const _techsS = _isNewProyS ? [...new Set(_prSRegs.map(function(x){return x.trabajador||x.creadoPor||"";}).filter(Boolean))] : [];
+    const _iniS = function(n){return (n||"").split(" ").map(function(w){return w[0]||"";}).join("").toUpperCase().slice(0,3);};
+    return /*#__PURE__*/React.createElement(React.Fragment, { key: r.id + "_sp" },
+      _isNewProyS && /*#__PURE__*/React.createElement("div", {
+        style: { background: "#1c3e5e", color: "#fff", borderRadius: "8px 8px 0 0", padding: "6px 14px", marginTop: _sIdx > 0 ? 12 : 0, display: "flex", justifyContent: "space-between", alignItems: "center" }
+      },
+        /*#__PURE__*/React.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" } },
+          /*#__PURE__*/React.createElement("span", { style: { fontWeight: 700, fontSize: 13 } }, _prS ? (_prS.nombre||_prS.estacion||"Proyecto") : "Sin proyecto"),
+          _prS&&_prS.estacion && /*#__PURE__*/React.createElement("span", { style: { fontSize: 11, opacity: .8 } }, "\xB7 " + _prS.estacion),
+          _techsS.map(function(t){ return /*#__PURE__*/React.createElement("span", { key: t, style: { fontSize: 10, background: "rgba(255,255,255,0.22)", borderRadius: 10, padding: "1px 7px", fontWeight: 700 } }, _iniS(t)+" "+t.split(" ")[0]); })
+        ),
+        _prSTotal > 0 && /*#__PURE__*/React.createElement("span", { style: { fontSize: 12, opacity: .9 } }, fmtE(_prSTotal))
+      ),
+      /*#__PURE__*/React.createElement("div", {
+        key: r.id + "_sr",
+        style: { ...rowSt, padding: 0, overflow: "hidden", border: "1px solid " + _hdr.border }
     }, /*#__PURE__*/React.createElement("div", {
       onClick: () => toggleCard(r.id),
       style: {
@@ -5343,7 +5355,8 @@ var factVencidas = facturas.filter(function(f){return f.fechaVto&&f.fechaVto<tod
           color: C.muted,
           fontStyle: "italic"
         }
-      }, " \xB7 ", l.observaciones) : null);
+      }, " \xB7 ", l.observaciones) : null,
+      /*#__PURE__*/(function(){var _wi=(r.trabajador||r.creadoPor||"").trim();return _wi?/*#__PURE__*/React.createElement("span",{style:{fontWeight:700,color:"#1c3e5e"}}," \xB7 "+_wi.split(" ").filter(function(w){return w.length>0;}).map(function(w){return w[0].toUpperCase();}).join("").slice(0,3)):null;})());
     })) : gC(r.conceptoId)?.nombre || "—"), /*#__PURE__*/React.createElement("div", {
       style: {
         fontSize: 11,
@@ -5406,7 +5419,7 @@ var factVencidas = facturas.filter(function(f){return f.fechaVto&&f.fechaVto<tod
     }, /*#__PURE__*/React.createElement(Ic, {
       d: P.edit,
       sz: 13
-    }))))));
+    })))))));
   })), view === "revision" && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("h2", {
     style: {
       fontSize: 17,
@@ -5478,9 +5491,14 @@ var factVencidas = facturas.filter(function(f){return f.fechaVto&&f.fechaVto<tod
     trabs.map(t => /*#__PURE__*/React.createElement("option", { key: "rtrab_"+t, value: t }, t))
   ),
   (() => {
-    const certPending = registros.filter(r =>
-      r.esGrupo && r.lineasGrupo?.some(l => l.certifEnviada && !l.certifAprobada)
-    );
+    const certPending = registros.filter(r => {
+      if (r.esGrupo) {
+        if (r.lineasGrupo?.some(l => l.certifEnviada && !l.certifAprobada)) return true;
+        if (r.estado === "certif_oferta" && r.estadoCertif !== "finalizado") return true;
+        return false;
+      }
+      return r.certifEnviada === true && !r.estadoCertif && r.estado === "aprobado";
+    });
     if (!certPending.length) return null;
     return /*#__PURE__*/React.createElement("div", {
       style: { marginBottom: 16 }
@@ -5490,6 +5508,57 @@ var factVencidas = facturas.filter(function(f){return f.fechaVto&&f.fechaVto<tod
       }, "⏳ Certificaciones pendientes de aprobación (" + certPending.length + ")"),
       certPending.map(r => {
         const proy = gP(r.proyectoId);
+        if (r.estado === "certif_oferta" && r.estadoCertif !== "finalizado") {
+          const certifLineas = (r.lineasGrupo || []).filter(l => l.certifOferta);
+          return /*#__PURE__*/React.createElement("div", {
+            key: r.id, style: { ...rowSt, marginBottom: 8, border: "1px solid #7c3aed", background: "#f5f3ff" }
+          },
+            /*#__PURE__*/React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center" } },
+              /*#__PURE__*/React.createElement("div", null,
+                /*#__PURE__*/React.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center" } },
+                  /*#__PURE__*/React.createElement("span", { style: { fontWeight: 700, fontSize: 13 } }, proy?.nombre || "—"),
+                  /*#__PURE__*/React.createElement("span", { style: { fontSize: 10, background: "#7c3aed", color: "#fff", borderRadius: 10, padding: "1px 7px", fontWeight: 700 } }, "🗂 Oferta"),
+                  r.ofertaCodigo && /*#__PURE__*/React.createElement("span", { style: { fontSize: 11, color: "#7c3aed", fontWeight: 600 } }, r.ofertaCodigo)
+                ),
+                /*#__PURE__*/React.createElement("div", { style: { fontSize: 11, color: C.muted, marginTop: 3 } },
+                  certifLineas.length + " línea(s) certificadas · " + (r.trabajador || r.creadoPor || "—")
+                )
+              ),
+              /*#__PURE__*/React.createElement("div", { style: { display: "flex", gap: 6 } },
+                /*#__PURE__*/React.createElement(Btn, { sm: true, variant: "success",
+                  onClick: () => setRegistros(rs => rs.map(x => x.id === r.id ? { ...x, estadoCertif: "finalizado" } : x))
+                }, "✓ Validar → Facturar"),
+                /*#__PURE__*/React.createElement(Btn, { sm: true, variant: "ghost", style: { color: C.danger },
+                  onClick: () => setRegistros(rs => rs.map(x => x.id === r.id ? {
+                    ...x, estado: "aprobado", lineasGrupo: (x.lineasGrupo||[]).map(l=>({...l, certifOferta:false, _ofertaCheck:false}))
+                  } : x))
+                }, "✕ Rechazar")
+              )
+            )
+          );
+        }
+        if (!r.esGrupo) {
+          const conc = gC(r.conceptoId);
+          return /*#__PURE__*/React.createElement("div", {
+            key: r.id, style: { ...rowSt, marginBottom: 8, border: "1px solid " + C.warn, background: "#fffbeb" }
+          },
+            /*#__PURE__*/React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center" } },
+              /*#__PURE__*/React.createElement("div", null,
+                /*#__PURE__*/React.createElement("div", { style: { fontWeight: 700, fontSize: 13 } }, proy?.nombre || "—"),
+                /*#__PURE__*/React.createElement("div", { style: { fontSize: 11, color: C.muted, display: "flex", gap: 8, marginTop: 2 } },
+                  /*#__PURE__*/React.createElement("span", null, conc?.nombre || "Actividad simple"),
+                  /*#__PURE__*/React.createElement("span", null, "· " + fmtD(r.fecha)),
+                  /*#__PURE__*/React.createElement("span", null, "· " + (r.trabajador || r.creadoPor || "—")),
+                  gT(r) != null && /*#__PURE__*/React.createElement("span", { style: { fontWeight: 700 } }, "· " + fmtE(gT(r)))
+                )
+              ),
+              /*#__PURE__*/React.createElement("div", { style: { display: "flex", gap: 6 } },
+                /*#__PURE__*/React.createElement(Btn, { sm: true, variant: "success", onClick: () => setRegistros(rs => rs.map(x => x.id === r.id ? { ...x, estadoCertif: "finalizado", certifEnviada: false } : x)) }, "✓ Validar"),
+                /*#__PURE__*/React.createElement(Btn, { sm: true, variant: "ghost", style: { color: C.danger }, onClick: () => setRegistros(rs => rs.map(x => x.id === r.id ? { ...x, certifEnviada: false } : x)) }, "✕ Rechazar")
+              )
+            )
+          );
+        }
         const pendLineas = (r.lineasGrupo || []).filter(l => l.certifEnviada && !l.certifAprobada);
         return /*#__PURE__*/React.createElement("div", {
           key: r.id,
@@ -5540,264 +5609,196 @@ var factVencidas = facturas.filter(function(f){return f.fechaVto&&f.fechaVto<tod
       })
     );
   })(),
-  /*#__PURE__*/React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 8 } }, rFiltrados.map(r => {
-    const pu = gPU(r),
-      tot = gT(r);
-    const sinP = isAdmin && (gC(r.conceptoId)?.p?.[gP(r.proyectoId)?.zona || ""] ?? null) === null;
-    const proy = gP(r.proyectoId);
-    const _collapsed = collapsedIds.has(r.id);
-    const _nItems = r.esGrupo ? (r.lineasGrupo?.length || 0) : 1;
-    const _title = r.esGrupo ? ("GRUPO · " + _nItems + " actividades") : (gC(r.conceptoId)?.nombre || "—");
-    const _hdr = regHdrStyle(r.estado);
-    return /*#__PURE__*/React.createElement("div", {
-      key: r.id,
-      style: { ...rowSt, padding: 0, overflow: "hidden", border: "1px solid " + _hdr.border }
-    }, /*#__PURE__*/React.createElement("div", {
-      onClick: () => toggleCard(r.id),
-      style: {
-        display: "flex", justifyContent: "space-between", alignItems: "center",
-        padding: "7px 12px", cursor: "pointer",
-        background: _hdr.bg,
-        borderBottom: "1px solid " + _hdr.border
-      }
-    }, /*#__PURE__*/React.createElement("div", {
-      style: { display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", flex: 1 }
-    }, /*#__PURE__*/React.createElement("span", { style: { fontWeight: 700, fontSize: 12 } }, _title),
-    proy && /*#__PURE__*/React.createElement("span", { style: { fontSize: 11, color: C.textSec, fontWeight: 600 } }, "· " + (proy.nombre || proy.po || "")),
-    proy?.estacion && /*#__PURE__*/React.createElement("span", { style: { fontSize: 11, color: C.primary } }, "· " + proy.estacion),
-    r.trabajador && /*#__PURE__*/React.createElement("span", { style: { fontSize: 11, color: C.muted } }, "· " + r.trabajador),
-    /*#__PURE__*/React.createElement("span", { style: { fontSize: 11, color: C.muted } }, "· " + fmtD(r.fecha)),
-    r.esGrupo && /*#__PURE__*/React.createElement("span", { style: { fontSize: 10, color: C.textSec } }, _nItems + " items"),
-    r.ofertaCodigo && /*#__PURE__*/React.createElement("span", { style: { fontSize: 10, fontWeight: 700, color: "#7c3aed", background: "#ede9fe", padding: "1px 6px", borderRadius: 4 } }, "🗂 " + r.ofertaCodigo)
-    ), /*#__PURE__*/React.createElement("span", { style: { fontSize: 10, color: C.muted } }, _collapsed ? "▼" : "▲")
-    ), /*#__PURE__*/React.createElement("div", {
-      style: { display: _collapsed ? "none" : "block", padding: "8px 12px" }
-    }, /*#__PURE__*/React.createElement("div", {
-      style: {
-        display: "flex",
-        flexDirection: "column",
-        gap: 7
-      }
-    }, /*#__PURE__*/React.createElement("div", {
-      style: {
-        display: "flex",
-        justifyContent: "space-between"
-      }
-    }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
-      style: {
-        fontWeight: 700,
-        fontSize: 13
-      }
-    }, gC(r.conceptoId)?.nombre || "—"), /*#__PURE__*/React.createElement("div", {
-      style: {
-        fontSize: 11,
-        color: C.muted,
-        display: "flex",
-        gap: 7,
-        flexWrap: "wrap"
-      }
-    }, /*#__PURE__*/React.createElement("span", {
-      style: {
-        fontWeight: 600,
-        color: C.textSec
-      }
-    }, proy?.nombre || "—"), proy?.estacion && /*#__PURE__*/React.createElement("span", {
-      style: {
-        color: C.primary
-      }
-    }, "\xB7 ", proy.estacion), /*#__PURE__*/React.createElement("span", null, "\xB7 ", r.trabajador), /*#__PURE__*/React.createElement("span", null, "\xB7 ", fmtD(r.fecha)), /*#__PURE__*/React.createElement("span", null, "\xB7 Cant: ", r.cantidad || 1), isAdmin && r.creadoPor && /*#__PURE__*/React.createElement("span", {
-      style: {
-        color: C.muted
-      }
-    }, "\xB7 Creado: ", r.creadoPor)), r.observaciones && /*#__PURE__*/React.createElement("div", {
-      style: {
-        fontSize: 11,
-        color: C.muted,
-        fontStyle: "italic"
-      }
-    }, "\"", r.observaciones, "\"")), /*#__PURE__*/React.createElement(EBdg, {
-      estado: r.estado
-    }), r.facturado && /*#__PURE__*/React.createElement("span",{style:{fontSize:10,color:"#7c3aed",fontWeight:700,background:"#f5f3ff",border:"1px solid #c4b5fd",padding:"2px 6px",borderRadius:4}},"💰 "+(r.facturaRef||"Facturado")),
-    r.esGrupo && r.estadoCertif && /*#__PURE__*/React.createElement("select", {
-      value: r.estadoCertif,
-      onChange: e => setRegistros(rs => rs.map(x => x.id === r.id ? { ...x, estadoCertif: e.target.value } : x)),
-      style: { fontSize: 10, padding: "1px 6px", borderRadius: 4, border: "1px solid " + C.border, fontFamily: "inherit", background: r.estadoCertif === "finalizado" ? "#d1fae5" : "#fef9c3", color: r.estadoCertif === "finalizado" ? "#065f46" : "#92400e", fontWeight: 700, cursor: "pointer" }
-    },
-      /*#__PURE__*/React.createElement("option", { value: "cert_parcial" }, "Certif. parcial"),
-      /*#__PURE__*/React.createElement("option", { value: "cert_total" }, "Certif. total"),
-      /*#__PURE__*/React.createElement("option", { value: "finalizado" }, "✓ Finalizado")
-    )), isAdmin && /*#__PURE__*/React.createElement("div", {
-      style: {
-        display: "flex",
-        alignItems: "center",
-        gap: 7,
-        flexWrap: "wrap"
-      }
-    }, sinP && /*#__PURE__*/React.createElement("div", {
-      style: {
-        display: "flex",
-        alignItems: "center",
-        gap: 4
-      }
-    }, /*#__PURE__*/React.createElement("span", {
-      style: {
-        fontSize: 11,
-        color: C.warn,
-        fontWeight: 600
-      }
-    }, "P.\u20AC:"), /*#__PURE__*/React.createElement("input", {
-      type: "number",
-      value: r.precioManual ?? "",
-      onChange: e => sPM(r.id, e.target.value),
-      style: {
-        width: 75,
-        padding: "3px 6px",
-        border: `1px solid ${C.border}`,
-        borderRadius: 4,
-        fontSize: 12,
-        fontFamily: "inherit",
-        background: C.inputBg
-      }
-    })), pu != null && !r.esGrupo && /*#__PURE__*/React.createElement("span", {
-      style: { fontSize: 11, fontWeight: 700, color: C.textSec }
-    }, fmtE(pu), " \xD7 ", r.cantidad || 1, " = ", /*#__PURE__*/React.createElement("strong", null, fmtE(tot))),
-    r.esGrupo && tot != null && /*#__PURE__*/React.createElement("span", {
-      style: { fontSize: 11, fontWeight: 700, color: C.textSec }
-    }, (() => { const ln = r.lineasGrupo||[]; const ca = ln.filter(l=>l.certifAprobada).length; const ce = ln.filter(l=>l.certifEnviada&&!l.certifAprobada).length; return (ca?"✓ "+ca+" certif. ":"") + (ce?"⏳ "+ce+" pendiente(s) ":"") + (ca===0&&ce===0?ln.length+" ítems ":""); })(), "= ", /*#__PURE__*/React.createElement("strong", null, fmtE(tot))), /*#__PURE__*/React.createElement("div", {
-      style: {
-        marginLeft: "auto",
-        display: "flex",
-        gap: 4,
-        flexWrap: "wrap"
-      }
-    }, r.estado !== "aprobado" && /*#__PURE__*/React.createElement(Btn, {
-      sm: true,
-      variant: "success",
-      onClick: () => apro(r.id)
-    }, /*#__PURE__*/React.createElement(Ic, {
-      d: P.chk,
-      sz: 10
-    }), " Aprobar"), r.esGrupo && isAdmin && /*#__PURE__*/React.createElement(Btn, {
-      sm: true,
-      variant: "ghost",
-      style: {
-        color: "#7c3aed",
-        borderColor: "#7c3aed"
-      },
-      onClick: () => {
-        const p = gP(r.proyectoId);
-        const cl = gCL(p?.clienteId);
-        const lineas = (r.lineasGrupo || []).map(l => ({
-          id: `lo${Date.now()}${Math.random().toString(36).slice(2)}`,
-          conceptoId: l.conceptoId,
-          cantidad: l.cantidad,
-          precioUnit: gC(l.conceptoId)?.p?.[p?.zona] ?? 0,
-          descuento: 0,
-          total: gC(l.conceptoId)?.p?.[p?.zona] ?? 0,
-          observaciones: l.observaciones
-        }));
-        const nOferta = genNumOferta(cfgOfertas);
-        // Marcar actividad como ofertada con referencia al código de oferta
-        setRegistros(rs => rs.map(x => x.id === r.id ? { ...x, estado: "ofertada", ofertaCodigo: nOferta } : x));
-        setEditOferta({
-          id: null,
-          numero: nOferta,
-          asunto: p?.nombre || "",
-          version: 1,
-          referencia: "",
-          fecha: today(),
-          emplazamiento: p?.estacion || "",
-          zona: p?.zona || "",
-          clienteId: p?.clienteId || "",
-          firmanteCliente: "",
-          firmanteNorAcua: "D. Daniel Romero",
-          formaPago: cl?.formaPago || "Según contrato",
-          estado: "Borrador",
-          nota: "",
-          lineas,
-          proyectoId: r.proyectoId,
-          propuestaPor: null
-        });
-        setEditOfertaMode("new");
-        setCurView("ofertas");
-        setViewO("editor");
-      }
-    }, /*#__PURE__*/React.createElement(Ic, {
-      d: P.doc,
-      sz: 10
-    }), " \u2192 Oferta"), r.estado !== "rechazado" && /*#__PURE__*/React.createElement(Btn, {
-      sm: true,
-      variant: "danger",
-      onClick: () => rech(r.id)
-    }, /*#__PURE__*/React.createElement(Ic, {
-      d: P.x,
-      sz: 10
-    }), " Rechazar"), isAdmin && r.estado === "aprobado" && r.esGrupo && /*#__PURE__*/React.createElement(Btn, {
-      sm: true,
-      variant: "ghost",
-      style: { color: "#065f46", borderColor: "#065f46" },
-      onClick: () => setRegistros(rs => rs.map(x => x.id !== r.id ? x : {
-        ...x,
-        estadoCertif: "finalizado",
-        lineasGrupo: (x.lineasGrupo || []).map(l => ({
-          ...l,
-          certifAprobada: true,
-          certifEnviada: true,
-          cantCertif: l.cantCertif ?? l.cantidad
-        }))
-      }))
-    }, "✓ Certificar"), r.estado !== "pendiente" && /*#__PURE__*/React.createElement(Btn, {
-      sm: true,
-      variant: "ghost",
-      onClick: () => pend(r.id)
-    }, "Pendiente"), canEditReg(r) && /*#__PURE__*/React.createElement(Btn, {
-      sm: true,
-      variant: "ghost",
-      onClick: () => setMEReg({
-        ...r,
-        cantidad: String(r.cantidad || 1)
-      })
-    }, /*#__PURE__*/React.createElement(Ic, {
-      d: P.edit,
-      sz: 10
-    })), isAdmin && /*#__PURE__*/React.createElement(Btn, {
-      sm: true,
-      variant: "ghost",
-      onClick: () => delR(r.id),
-      style: {
-        color: C.danger
-      }
-    }, /*#__PURE__*/React.createElement(Ic, {
-      d: P.trash,
-      sz: 10
-    })))),
-    r.esGrupo && (r.lineasGrupo||[]).some(l=>l.certifAprobada||l.certifEnviada) && /*#__PURE__*/React.createElement("div", {
-      style: { marginTop: 8, borderTop: "1px solid " + C.border, paddingTop: 6 }
-    },
-      /*#__PURE__*/React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: C.textSec, marginBottom: 5 } }, "Ítems certificados / enviados:"),
-      (r.lineasGrupo||[]).filter(l=>l.certifAprobada||l.certifEnviada).map((l,i) => {
-        const conc = concs.find(x=>x.id===l.conceptoId);
-        const isAp = l.certifAprobada, isEn = l.certifEnviada && !l.certifAprobada;
-        return /*#__PURE__*/React.createElement("div", { key: l.id||i, style: { display:"flex", alignItems:"center", gap:8, padding:"4px 8px", borderRadius:4, fontSize:11, marginBottom:3, background:isAp?"#d1fae5":"#fef9c3", border:"1px solid "+(isAp?C.success:C.warn) } },
-          /*#__PURE__*/React.createElement("span", { style: { color:isAp?"#065f46":C.warn } }, isAp?"✓":"⏳"),
-          /*#__PURE__*/React.createElement("div", { style: { flex:1 } },
-          /*#__PURE__*/React.createElement("span", { style: { fontSize: 11 } }, conc?.nombre||"—"),
-          l.observaciones && /*#__PURE__*/React.createElement("div", { style: { fontSize: 10, color: C.muted, fontStyle: "italic", marginTop: 1 } }, l.observaciones)
-        ),
-          (isEn || isAdmin) && /*#__PURE__*/React.createElement("input", { type:"number", min:"0", step:"0.01", value:l.cantCertif??l.cantidad, onChange:e=>setRegistros(rs=>rs.map(x=>x.id===r.id?{...x,lineasGrupo:x.lineasGrupo.map((ll,j)=>j===i?{...ll,cantCertif:Number(e.target.value)}:ll)}:x)), style:{width:55,padding:"2px 4px",border:"1px solid "+C.border,borderRadius:4,fontSize:11,fontFamily:"inherit",background:C.inputBg,textAlign:"center"} }),
-          !isAdmin && /*#__PURE__*/React.createElement("span", { style:{color:C.muted,whiteSpace:"nowrap"} }, (l.cantCertif??l.cantidad)+" uds"),
-          isAdmin && /*#__PURE__*/React.createElement("div", { style:{display:"flex",alignItems:"center",gap:2} },
-            /*#__PURE__*/React.createElement("input", { type:"number", min:"0", max:"100", step:"1", value:l.descuento??0, placeholder:"0", onChange:e=>setRegistros(rs=>rs.map(x=>x.id===r.id?{...x,lineasGrupo:x.lineasGrupo.map((ll,j)=>j===i?{...ll,descuento:Number(e.target.value)||0}:ll)}:x)), style:{width:45,padding:"2px 4px",border:"1px solid "+C.border,borderRadius:4,fontSize:11,fontFamily:"inherit",background:C.inputBg,textAlign:"center"} }),
-            /*#__PURE__*/React.createElement("span", { style:{fontSize:10,color:C.muted} }, "%dto")
+  /*#__PURE__*/React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 0 } },
+  (function(){
+    var _rg={},_ro=[];
+    rFiltrados.forEach(function(r){
+      var p=gP(r.proyectoId);
+      var gk=(p?(p.nombre||"")+"|"+(p.estacion||""):(r.proyectoId||"_sin")).trim();
+      if(!_rg[gk]){_rg[gk]=[];_ro.push(gk);}
+      _rg[gk].push(r);
+    });
+    return _ro.map(function(gk){
+      var regs=_rg[gk];
+      var proy=gP(regs[0].proyectoId);
+      var allTechs=[]; regs.forEach(function(r){var t=r.trabajador||r.creadoPor||"";if(t&&allTechs.indexOf(t)===-1)allTechs.push(t);});
+      var techColors=["#1c3e5e","#059669","#7c3aed","#d48a10","#0891b2"];
+      var ini=function(n){return(n||"").split(" ").filter(Boolean).map(function(w){return w[0].toUpperCase();}).join("").slice(0,3);};
+      // Active items (need admin action)
+      var allItems=[];
+      regs.forEach(function(r){
+        var tech=r.trabajador||r.creadoPor||"";
+        if(r.esGrupo&&r.lineasGrupo&&r.lineasGrupo.length>0){
+          r.lineasGrupo.forEach(function(l){
+            var c2=gC(l.conceptoId);
+            var pu=l.precioManual!=null?l.precioManual:(c2?.p?.[proy?.zona]??0);
+            var cant=l.cantCertif??l.cantidad??1;
+            allItems.push({regId:r.id,reg:r,linea:l,tech:tech,conc:c2,cant:cant,imp:pu*cant*(1-(Number(l.descuento)||0)/100),obs:l.observaciones||"",isCertif:!!l.certifAprobada,isCertifPend:!!(l.certifEnviada&&!l.certifAprobada)});
+          });
+        } else {
+          var c3=gC(r.conceptoId);
+          var pu2=r.precioManual!=null?r.precioManual:(c3?.p?.[proy?.zona]??0);
+          var cant2=r.cantidad??1;
+          allItems.push({regId:r.id,reg:r,linea:null,tech:tech,conc:c3,cant:cant2,imp:pu2*cant2,obs:r.descripcion||r.observaciones||"",isCertif:r.estadoCertif==="finalizado",isCertifPend:!!(r.certifEnviada&&!r.estadoCertif)});
+        }
+      });
+      // Historical items (facturado - same project, from full registros list)
+      var histItems=[];
+      var gkTest=function(r2){var p2=gP(r2.proyectoId);return(p2?(p2.nombre||"")+"|"+(p2.estacion||""):(r2.proyectoId||"_sin")).trim()===gk;};
+      registros.filter(function(r2){return r2.facturado&&gkTest(r2);}).forEach(function(r2){
+        var tech2=r2.trabajador||r2.creadoPor||"";
+        if(r2.esGrupo&&r2.lineasGrupo&&r2.lineasGrupo.length>0){
+          r2.lineasGrupo.forEach(function(l){
+            var c4=gC(l.conceptoId);
+            var pu3=l.precioManual!=null?l.precioManual:(c4?.p?.[proy?.zona]??0);
+            var cant3=l.cantCertif??l.cantidad??1;
+            histItems.push({regId:r2.id,reg:r2,linea:l,tech:tech2,conc:c4,cant:cant3,imp:pu3*cant3*(1-(Number(l.descuento)||0)/100),obs:l.observaciones||""});
+          });
+        } else {
+          var c5=gC(r2.conceptoId);
+          var pu4=r2.precioManual!=null?r2.precioManual:(c5?.p?.[proy?.zona]??0);
+          histItems.push({regId:r2.id,reg:r2,linea:null,tech:tech2,conc:c5,cant:r2.cantidad??1,imp:pu4*(r2.cantidad??1),obs:r2.descripcion||""});
+        }
+      });
+      // Group state for header buttons
+      var totalGk=allItems.reduce(function(a,x){return a+x.imp;},0);
+      var hasPend=regs.some(function(r){return r.estado==="pendiente";});
+      var hasAprobSinCertif=regs.some(function(r){return r.estado==="aprobado"&&r.estadoCertif!=="finalizado"&&!(r.lineasGrupo&&r.lineasGrupo.every(function(l){return l.certifAprobada;}));});
+      var hasCertifPend=allItems.some(function(x){return x.isCertifPend;});
+      var ofertaDisponible=regs.some(function(r){return !r.ofertaCodigo&&!(r.ofertaCodigos&&r.ofertaCodigos.length>0)&&r.estado!=="certif_oferta"&&r.estado!=="rechazado";});
+      // Existing offer assignments on group
+      var groupOfertaCodigos=[]; regs.forEach(function(r){
+        (r.ofertaCodigos||[]).forEach(function(oc){if(groupOfertaCodigos.indexOf(oc)===-1)groupOfertaCodigos.push(oc);});
+        if(r.ofertaCodigo&&groupOfertaCodigos.indexOf(r.ofertaCodigo)===-1)groupOfertaCodigos.push(r.ofertaCodigo);
+      });
+      var isOpen=!collapsedIds.has("rv2_"+gk);
+      var isAssigning=assigningOfertaGk===gk;
+      // Offers available for this project's client
+      var clienteId=proy?.clienteId||"";
+      var ofertasDisp=ofertas.filter(function(o){return o.clienteId===clienteId&&o.estado!=="Anulada"&&o.estado!=="Rechazada";});
+      return /*#__PURE__*/React.createElement("div",{key:gk,style:{marginBottom:10}},
+        // ── Group header ──
+        /*#__PURE__*/React.createElement("div",{
+          onClick:function(){toggleCard("rv2_"+gk);},
+          style:{background:"#1c3e5e",color:"#fff",borderRadius:isOpen?"8px 8px 0 0":"8px",padding:"7px 14px",display:"flex",justifyContent:"space-between",alignItems:"center",cursor:"pointer",userSelect:"none"}
+        },
+          /*#__PURE__*/React.createElement("div",{style:{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}},
+            /*#__PURE__*/React.createElement("span",{style:{fontWeight:700,fontSize:13}},proy?(proy.nombre||proy.estacion||"Proyecto"):"Sin proyecto"),
+            proy&&proy.estacion&&/*#__PURE__*/React.createElement("span",{style:{fontSize:11,opacity:.8}},"\xB7 "+proy.estacion),
+            allTechs.map(function(t,ti){return /*#__PURE__*/React.createElement("span",{key:t,style:{fontSize:10,background:techColors[ti%5],borderRadius:10,padding:"1px 7px",fontWeight:700}},ini(t)+" "+t.split(" ")[0]);}),
+            allItems.length>0&&/*#__PURE__*/React.createElement("span",{style:{fontSize:11,opacity:.7}},allItems.length+" \xedtems"),
+            histItems.length>0&&/*#__PURE__*/React.createElement("span",{style:{fontSize:10,background:"rgba(255,255,255,0.15)",borderRadius:10,padding:"1px 6px"}},histItems.length+" facturados"),
+            groupOfertaCodigos.map(function(oc){return /*#__PURE__*/React.createElement("span",{key:oc,style:{fontSize:10,background:"#7c3aed",borderRadius:10,padding:"1px 7px",fontWeight:700}},oc);})
           ),
-          isEn && /*#__PURE__*/React.createElement("div", {style:{display:"flex",gap:3}},
-            /*#__PURE__*/React.createElement(Btn, { sm:true, variant:"success", onClick:()=>approveLinea(r.id,i) }, "✓"),
-            /*#__PURE__*/React.createElement(Btn, { sm:true, variant:"ghost", style:{color:C.danger}, onClick:()=>rejectLinea(r.id,i) }, "✕")
+          /*#__PURE__*/React.createElement("div",{style:{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap"}},
+            totalGk>0&&/*#__PURE__*/React.createElement("span",{style:{fontSize:12,fontWeight:700}},fmtE(totalGk)),
+            hasPend&&/*#__PURE__*/React.createElement("button",{onClick:function(e){e.stopPropagation();setRegistros(function(rs){return rs.map(function(x){return regs.find(function(r){return r.id===x.id;})&&x.estado==="pendiente"?Object.assign({},x,{estado:"aprobado"}):x;});});},style:{fontSize:10,background:"#059669",border:"none",color:"#fff",borderRadius:5,padding:"2px 7px",cursor:"pointer",fontWeight:700}},"\u2713 Aprobar todo"),
+            hasPend&&/*#__PURE__*/React.createElement("button",{onClick:function(e){e.stopPropagation();setRegistros(function(rs){return rs.map(function(x){return regs.find(function(r){return r.id===x.id;})&&x.estado==="pendiente"?Object.assign({},x,{estado:"rechazado"}):x;});});},style:{fontSize:10,background:"#dc2626",border:"none",color:"#fff",borderRadius:5,padding:"2px 7px",cursor:"pointer",fontWeight:700}},"\u2715 Rechazar todo"),
+            hasAprobSinCertif&&/*#__PURE__*/React.createElement("button",{onClick:function(e){e.stopPropagation();setRegistros(function(rs){return rs.map(function(x){if(!regs.find(function(r){return r.id===x.id;})||x.estado!=="aprobado")return x;if(x.esGrupo)return Object.assign({},x,{estadoCertif:"finalizado",lineasGrupo:(x.lineasGrupo||[]).map(function(l){return Object.assign({},l,{certifAprobada:true,certifEnviada:true,cantCertif:l.cantCertif??l.cantidad});})});return Object.assign({},x,{estadoCertif:"finalizado"});});});},style:{fontSize:10,background:"#1c3e5e",border:"none",color:"#fff",borderRadius:5,padding:"2px 7px",cursor:"pointer",fontWeight:700}},"\uD83D\uDCCB Certif. todo"),
+            hasCertifPend&&/*#__PURE__*/React.createElement("button",{onClick:function(e){e.stopPropagation();setRegistros(function(rs){return rs.map(function(x){if(!regs.find(function(r){return r.id===x.id;}))return x;if(x.esGrupo){var nls=(x.lineasGrupo||[]).map(function(l){return l.certifEnviada&&!l.certifAprobada?Object.assign({},l,{certifAprobada:true,certifEnviada:false}):l;});return Object.assign({},x,{lineasGrupo:nls,estadoCertif:nls.every(function(l){return l.certifAprobada;})?"finalizado":x.estadoCertif});}return x.certifEnviada&&!x.estadoCertif?Object.assign({},x,{estadoCertif:"finalizado",certifEnviada:false}):x;});});},style:{fontSize:10,background:"#059669",border:"none",color:"#fff",borderRadius:5,padding:"2px 7px",cursor:"pointer",fontWeight:700}},"\u2713 Validar todas"),
+            ofertaDisponible&&/*#__PURE__*/React.createElement("button",{onClick:function(e){e.stopPropagation();var lns=[];regs.filter(function(r){return !r.ofertaCodigo&&!(r.ofertaCodigos&&r.ofertaCodigos.length>0)&&r.estado!=="certif_oferta"&&r.estado!=="rechazado";}).forEach(function(rx){if(rx.esGrupo&&rx.lineasGrupo){rx.lineasGrupo.forEach(function(l){var pu3=l.precioManual!=null?l.precioManual:(gC(l.conceptoId)?.p?.[proy?.zona]??0);var lo={id:"lo"+Date.now()+Math.random().toString(36).slice(2),conceptoId:l.conceptoId,cantidad:l.cantCertif??l.cantidad??1,precioUnit:pu3,descuento:Number(l.descuento)||0,total:0,comentario:l.observaciones||""};lo.total=calcOfertaLinea(lo);lns.push(lo);});}else{var cx=gC(rx.conceptoId);var pu4=rx.precioManual!=null?rx.precioManual:(cx?.p?.[proy?.zona]??0);var lo2={id:"lo"+Date.now()+Math.random().toString(36).slice(2),conceptoId:rx.conceptoId,cantidad:rx.cantidad??1,precioUnit:pu4,descuento:0,total:pu4*(rx.cantidad??1),comentario:rx.descripcion||""};lo2.total=calcOfertaLinea(lo2);lns.push(lo2);}});var _nOf=genNumOferta(cfgOfertas);setEditOferta({id:null,numero:_nOf,clienteId:proy?.clienteId||"",proyectoId:regs[0].proyectoId,zona:proy?.zona||"",po:proy?.po||"",asunto:"Oferta "+(proy?.nombre||proy?.po||""),nombre:"Oferta "+(proy?.nombre||proy?.po||""),estado:"Borrador",version:1,lineas:lns,firmante:"",firmanteCliente:"",firmanteNorAcua:"D. Daniel Romero",formaPago:"Seg\xFAn contrato",fecha:today(),creadoEn:new Date().toISOString()});setEditOfertaMode("new");setModulo("ofertas");setViewO("editor");},style:{fontSize:10,background:"#7c3aed",border:"none",color:"#fff",borderRadius:5,padding:"2px 7px",cursor:"pointer",fontWeight:700}},"\uD83D\uDCC4 Oferta"),
+            /*#__PURE__*/React.createElement("button",{onClick:function(e){e.stopPropagation();setAssigningOfertaGk(isAssigning?null:gk);setAssigningOfertaSel(groupOfertaCodigos.slice());},style:{fontSize:10,background:isAssigning?"#5c4a99":"rgba(255,255,255,0.2)",border:"1px solid rgba(255,255,255,0.3)",color:"#fff",borderRadius:5,padding:"2px 7px",cursor:"pointer",fontWeight:700}},"\uD83D\uDD17 Asignar oferta(s)"),
+            (regs.some(function(r){return r.estado==="aprobado"||r.estadoCertif==="finalizado";}))&&/*#__PURE__*/React.createElement("button",{onClick:function(e){e.stopPropagation();setRegistros(function(rs){return rs.map(function(x){if(!regs.find(function(r){return r.id===x.id;}))return x;return Object.assign({},x,{estado:"pendiente",estadoCertif:null,certifEnviada:false,lineasGrupo:(x.lineasGrupo||[]).map(function(l){return Object.assign({},l,{certifAprobada:false,certifEnviada:false});})});});});},style:{fontSize:10,background:"rgba(255,255,255,0.15)",border:"none",color:"#fff",borderRadius:5,padding:"2px 7px",cursor:"pointer"}},"\u21A9 Pendiente"),
+            groupOfertaCodigos.length>0&&/*#__PURE__*/React.createElement("button",{onClick:function(e){e.stopPropagation();setRegistros(function(rs){return rs.map(function(x){if(!regs.find(function(r){return r.id===x.id;})||x.facturado)return x;return Object.assign({},x,{ofertaCodigo:"",ofertaCodigos:[],estado:x.estado==="certif_oferta"?"pendiente":x.estado,certifOfertaAt:null,lineasGrupo:(x.lineasGrupo||[]).map(function(l){return Object.assign({},l,{certifOferta:false,_ofertaCheck:false,certifOfertaAt:null});})});});});setAssigningOfertaGk(null);},style:{fontSize:10,background:"#dc2626",border:"none",color:"#fff",borderRadius:5,padding:"2px 7px",cursor:"pointer",fontWeight:700}},'🗑 Quitar oferta'),
+            /*#__PURE__*/React.createElement("span",{style:{fontSize:12,opacity:.7}},isOpen?"\u25B2":"\u25BC")
           )
-        );
-      })
-    ))));
-  }))))
+        ),
+        // ── Inline offer assignment panel ──
+        isAssigning&&/*#__PURE__*/React.createElement("div",{style:{background:"#f5f3ff",border:"1px solid #7c3aed",borderTop:"none",padding:"12px 14px",display:"flex",flexWrap:"wrap",gap:8,alignItems:"center"}},
+          /*#__PURE__*/React.createElement("span",{style:{fontSize:12,fontWeight:700,color:"#3C3489",marginRight:4}},"Asignar oferta(s) a todo el grupo:"),
+          ofertasDisp.length===0&&/*#__PURE__*/React.createElement("span",{style:{fontSize:11,color:"#888"}},"No hay ofertas disponibles para este cliente"),
+          ofertasDisp.sort(function(a,b){var na=a.numero||"",nb=b.numero||"";var ma=na.match(/(\d+)/g),mb=nb.match(/(\d+)/g);if(ma&&mb){var d=Number(mb[mb.length-1])-Number(ma[ma.length-1]);if(d!==0)return d;}return nb.localeCompare(na);}).map(function(o){
+            var sel=assigningOfertaSel.indexOf(o.numero||o.id)!==-1;
+            var totalOfer=calcOfertaTotal(o.lineas||[]);
+            var oProy=gP(o.proyectoId);
+            var asunto=o.asunto||o.nombre||(oProy?.nombre?"Proy: "+oProy.nombre:"")||(o.po?"PO: "+o.po:"")||(o.estado||"Sin asunto");
+            return /*#__PURE__*/React.createElement("label",{key:o.id,style:{display:"flex",alignItems:"flex-start",gap:6,fontSize:11,cursor:"pointer",background:sel?"#ede9fe":"#fff",border:"1px solid "+(sel?"#7c3aed":"#dde2e8"),borderRadius:6,padding:"6px 10px",fontWeight:400,minWidth:200,maxWidth:280}},
+              /*#__PURE__*/React.createElement("input",{type:"checkbox",checked:sel,onChange:function(){
+                var code=o.numero||o.id;
+                setAssigningOfertaSel(function(prev){return sel?prev.filter(function(x){return x!==code;}):[...prev,code];});
+              },style:{margin:"3px 0 0 0",flexShrink:0}}),
+              /*#__PURE__*/React.createElement("div",null,
+                /*#__PURE__*/React.createElement("div",{style:{fontWeight:700,color:"#3C3489",fontSize:12}},o.numero||"Borrador"),
+                /*#__PURE__*/React.createElement("div",{style:{color:"#333",marginTop:1,lineHeight:1.4}},asunto),
+                /*#__PURE__*/React.createElement("div",{style:{display:"flex",gap:8,marginTop:2}},
+                  totalOfer>0&&/*#__PURE__*/React.createElement("span",{style:{color:"#7c3aed",fontWeight:700}},fmtE(totalOfer)),
+                  /*#__PURE__*/React.createElement("span",{style:{color:"#888"}},o.estado||"Borrador")
+                )
+              )
+            );
+          }),
+          /*#__PURE__*/React.createElement("button",{onClick:function(){
+            var selCodes=assigningOfertaSel;
+            setRegistros(function(rs){return rs.map(function(x){
+              if(!regs.find(function(r){return r.id===x.id;})||x.facturado)return x;
+              return Object.assign({},x,{ofertaCodigos:selCodes,ofertaCodigo:selCodes[0]||x.ofertaCodigo||""});
+            });});
+            setAssigningOfertaGk(null);
+          },style:{fontSize:11,background:"#7c3aed",border:"none",color:"#fff",borderRadius:6,padding:"4px 12px",cursor:"pointer",fontWeight:700}},"\u2713 Confirmar"),
+          /*#__PURE__*/React.createElement("button",{onClick:function(){setAssigningOfertaGk(null);},style:{fontSize:11,background:"none",border:"1px solid #999",color:"#666",borderRadius:6,padding:"4px 12px",cursor:"pointer"}},"\u2715 Cancelar")
+        ),
+        // ── Group body ──
+        isOpen&&/*#__PURE__*/React.createElement("div",{style:{border:"1px solid #dde2e8",borderTop:"none",borderRadius:"0 0 8px 8px",overflow:"hidden"}},
+          // Active items
+          allItems.map(function(it,ii){
+            var tc=techColors[allTechs.indexOf(it.tech)%5]||"#1c3e5e";
+            return /*#__PURE__*/React.createElement("div",{key:it.regId+"_i"+ii,style:{display:"flex",alignItems:"flex-start",gap:8,padding:"7px 12px",borderBottom:"1px solid #f0f4f8",background:ii%2===0?"#fff":"#fafafa"}},
+              /*#__PURE__*/React.createElement(EBdg,{estado:it.reg.estado,style:{flexShrink:0,marginTop:2}}),
+              /*#__PURE__*/React.createElement("div",{style:{flex:1,fontSize:12,lineHeight:1.5}},
+                /*#__PURE__*/React.createElement("span",{style:{fontWeight:600,color:"#1c3e5e"}},it.conc?.nombre||"\u2014"),
+                " \xB7 cant: ",it.cant,
+                it.imp>0?" \xB7 "+fmtE(it.imp):"",
+                it.obs?/*#__PURE__*/React.createElement("span",{style:{color:"#6b7280",fontStyle:"italic"}}," \xB7 "+it.obs):null,
+                " \xB7 ",/*#__PURE__*/React.createElement("span",{style:{fontWeight:700,color:tc}},ini(it.tech))
+              ),
+              it.isCertif&&/*#__PURE__*/React.createElement(React.Fragment,{key:"cb"+ii},
+                /*#__PURE__*/React.createElement("span",{style:{fontSize:10,color:"#059669",fontWeight:700,background:"#d1fae5",borderRadius:4,padding:"2px 6px",whiteSpace:"nowrap"}},"\u2713 Certif."),
+                /*#__PURE__*/React.createElement(Btn,{sm:true,variant:"ghost",style:{color:"#6b7280",fontSize:10},title:"Deshacer certificaci\xF3n",onClick:function(){setRegistros(function(rs){return rs.map(function(x){if(x.id!==it.regId)return x;if(it.linea){var nls=(x.lineasGrupo||[]).map(function(l){return l.id===it.linea.id?Object.assign({},l,{certifAprobada:false,certifEnviada:false}):l;});return Object.assign({},x,{lineasGrupo:nls,estadoCertif:nls.some(function(l){return l.certifAprobada;})?x.estadoCertif:null});}return Object.assign({},x,{estadoCertif:null,certifEnviada:false,lineasGrupo:(x.lineasGrupo||[]).map(function(l){return Object.assign({},l,{certifAprobada:false,certifEnviada:false});})});});});}},"\u21A9")
+              ),
+              it.isCertifPend&&/*#__PURE__*/React.createElement("span",{style:{fontSize:10,color:"#92400e",fontWeight:700,background:"#fde68a",borderRadius:4,padding:"2px 6px",whiteSpace:"nowrap",border:"1px solid #f59e0b"}},"\u23F3 Certif. solicitada"),
+              it.reg.facturado&&/*#__PURE__*/React.createElement("span",{style:{fontSize:10,color:"#7c3aed",fontWeight:700,background:"#f5f3ff",borderRadius:4,padding:"2px 6px",whiteSpace:"nowrap"}},"\uD83D\uDCB0 "+(it.reg.facturaRef||"")),
+              /*#__PURE__*/React.createElement("div",{style:{display:"flex",gap:4,alignItems:"center",flexShrink:0}},
+                it.reg.estado==="pendiente"&&/*#__PURE__*/React.createElement(React.Fragment,{key:"ap"+ii},
+                  /*#__PURE__*/React.createElement(Btn,{sm:true,variant:"success",onClick:function(){setRegistros(function(rs){return rs.map(function(x){return x.id===it.regId?Object.assign({},x,{estado:"aprobado"}):x;});});}},"\u2713"),
+                  /*#__PURE__*/React.createElement(Btn,{sm:true,variant:"ghost",style:{color:"#dc2626"},onClick:function(){setRegistros(function(rs){return rs.map(function(x){return x.id===it.regId?Object.assign({},x,{estado:"rechazado"}):x;});});}},"\u2715")
+                ),
+                it.reg.estado==="aprobado"&&!it.isCertif&&!it.isCertifPend&&/*#__PURE__*/React.createElement(React.Fragment,{key:"ca"+ii},
+                  /*#__PURE__*/React.createElement(Btn,{sm:true,variant:"ghost",style:{color:"#6b7280"},onClick:function(){setRegistros(function(rs){return rs.map(function(x){if(x.id!==it.regId)return x;return Object.assign({},x,{estado:"pendiente",estadoCertif:null,certifEnviada:false,lineasGrupo:(x.lineasGrupo||[]).map(function(l){return Object.assign({},l,{certifAprobada:false,certifEnviada:false});})});});});}}," \u21A9 Pend."),
+                  /*#__PURE__*/React.createElement(Btn,{sm:true,variant:"ghost",style:{color:"#1c3e5e"},onClick:function(){setRegistros(function(rs){return rs.map(function(x){if(x.id!==it.regId)return x;if(x.esGrupo)return Object.assign({},x,{estadoCertif:"finalizado",lineasGrupo:(x.lineasGrupo||[]).map(function(l){return Object.assign({},l,{certifAprobada:true,certifEnviada:true,cantCertif:l.cantCertif??l.cantidad});})});return Object.assign({},x,{estadoCertif:"finalizado"});});});}},"Certif.")
+                ),
+                it.isCertifPend&&/*#__PURE__*/React.createElement(React.Fragment,{key:"vp"+ii},
+                  /*#__PURE__*/React.createElement(Btn,{sm:true,variant:"success",onClick:function(){setRegistros(function(rs){return rs.map(function(x){if(x.id!==it.regId)return x;if(it.linea){var nls=(x.lineasGrupo||[]).map(function(l){return l.id===it.linea.id?Object.assign({},l,{certifAprobada:true,certifEnviada:false}):l;});var allAp=nls.every(function(l){return l.certifAprobada;});return Object.assign({},x,{lineasGrupo:nls,estadoCertif:allAp?"finalizado":x.estadoCertif});}return Object.assign({},x,{estadoCertif:"finalizado",certifEnviada:false});});});}},"\u2713 Aprobar certif."),
+                  /*#__PURE__*/React.createElement(Btn,{sm:true,variant:"ghost",style:{color:"#dc2626"},onClick:function(){setRegistros(function(rs){return rs.map(function(x){if(x.id!==it.regId)return x;if(it.linea)return Object.assign({},x,{lineasGrupo:(x.lineasGrupo||[]).map(function(l){return l.id===it.linea.id?Object.assign({},l,{certifEnviada:false}):l;})});return Object.assign({},x,{certifEnviada:false});});});}},"\u2715")
+                ),
+                (it.reg.ofertaCodigo||(it.reg.ofertaCodigos&&it.reg.ofertaCodigos.length>0))&&!it.reg.facturado&&/*#__PURE__*/React.createElement(Btn,{sm:true,variant:"ghost",style:{color:"#dc2626",fontSize:10},title:"Quitar oferta y revertir",onClick:function(){setRegistros(function(rs){return rs.map(function(x){if(x.id!==it.regId)return x;return Object.assign({},x,{ofertaCodigo:"",ofertaCodigos:[],estado:x.estado==="certif_oferta"?"pendiente":x.estado,certifOfertaAt:null,lineasGrupo:(x.lineasGrupo||[]).map(function(l){return Object.assign({},l,{certifOferta:false,_ofertaCheck:false,certifOfertaAt:null});})});});});}},'✖ Oferta'),
+                canEditReg(it.reg)&&/*#__PURE__*/React.createElement(Btn,{sm:true,variant:"ghost",onClick:function(){setMEReg(Object.assign({},it.reg));}},/*#__PURE__*/React.createElement(Ic,{d:P.edit,sz:13}))
+              )
+            );
+          }),
+          // Historical items (facturado - locked, read-only)
+          histItems.length>0&&/*#__PURE__*/React.createElement("div",{style:{borderTop:"2px dashed #e5e7eb"}},
+            /*#__PURE__*/React.createElement("div",{style:{padding:"4px 12px",background:"#f9fafb",fontSize:11,color:"#6b7280",fontWeight:700}},"\uD83D\uDCDA Historial facturado ("+histItems.length+" \xedtems)"),
+            histItems.map(function(it,ii){
+              var tc=techColors[allTechs.indexOf(it.tech)%5]||"#6b7280";
+              return /*#__PURE__*/React.createElement("div",{key:it.regId+"_h"+ii,style:{display:"flex",alignItems:"flex-start",gap:8,padding:"6px 12px",borderBottom:"1px solid #f0f4f8",background:"#fafafa",opacity:.7}},
+                /*#__PURE__*/React.createElement("span",{style:{fontSize:10,color:"#059669",fontWeight:700,background:"#d1fae5",borderRadius:4,padding:"2px 6px",whiteSpace:"nowrap",flexShrink:0}},"\uD83D\uDCB0 Facturado"),
+                /*#__PURE__*/React.createElement("div",{style:{flex:1,fontSize:12,lineHeight:1.5,color:"#6b7280"}},
+                  /*#__PURE__*/React.createElement("span",{style:{fontWeight:600}},it.conc?.nombre||"\u2014"),
+                  " \xB7 cant: ",it.cant,
+                  it.imp>0?" \xB7 "+fmtE(it.imp):"",
+                  it.obs?/*#__PURE__*/React.createElement("span",{style:{fontStyle:"italic"}}," \xB7 "+it.obs):null,
+                  " \xB7 ",/*#__PURE__*/React.createElement("span",{style:{fontWeight:700,color:tc}},ini(it.tech))
+                ),
+                it.reg.facturaRef&&/*#__PURE__*/React.createElement("span",{style:{fontSize:10,color:"#7c3aed",background:"#f5f3ff",borderRadius:4,padding:"2px 6px",whiteSpace:"nowrap"}},it.reg.facturaRef)
+              );
+            })
+          )
+        )
+      );
+    });
+  })()
+)))
+
 , view === "archivadas" && isAdmin && /*#__PURE__*/React.createElement(React.Fragment, null,
   /*#__PURE__*/React.createElement("h2", { style: { fontSize: 17, fontWeight: 700, marginBottom: 4 } }, "Archivadas"),
   /*#__PURE__*/React.createElement("p", { style: { fontSize: 12, color: C.muted, marginBottom: 10 } }, "Actividades completamente certificadas — agrupadas por mes"),
@@ -5844,7 +5845,7 @@ var factVencidas = facturas.filter(function(f){return f.fechaVto&&f.fechaVto<tod
       const lineas = r.lineasGrupo || [];
       const allAprob = lineas.length > 0 && lineas.every(l => l.certifAprobada);
       const allCO = lineas.length > 0 && lineas.every(l => l.certifOferta);
-      if (!(r.estadoCertif === "finalizado" || allAprob || r.estado === "aprobado" || r.estado === "certif_oferta" || allCO)) return false;
+      if (!(r.estadoCertif === "finalizado" || allAprob || r.estado === "aprobado" || r.estado === "certificado" || r.estado === "certif_oferta" || allCO)) return false;
       if (fAdmArchEstado === "aprobado" && r.estado !== "aprobado") return false;
       if (fAdmArchEstado === "certificado" && !(r.estadoCertif === "finalizado" || allAprob)) return false;
       if (fAdmArchEstado === "certif_oferta" && r.estado !== "certif_oferta") return false;
@@ -6236,7 +6237,32 @@ var factVencidas = facturas.filter(function(f){return f.fechaVto&&f.fechaVto<tod
   }, /*#__PURE__*/React.createElement(Ic, {
     d: P.trash,
     sz: 10
-  })))))), view === "config" && isAdmin && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+  })))))), view === "config" && isAdmin && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", { style: { background: "#fff3cd", border: "1px solid #ffc107", borderRadius: 8, padding: "12px 16px", marginBottom: 16 } },
+    /*#__PURE__*/React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8, marginBottom: 6 } },
+      /*#__PURE__*/React.createElement("span", { style: { fontWeight: 700, fontSize: 13 } }, "🔍 Diagnóstico de registros"),
+      /*#__PURE__*/React.createElement("div", { style: { display: "flex", gap: 6 } },
+        /*#__PURE__*/React.createElement(Btn, { sm: true, onClick: () => {
+          const orphans = registros.filter(r => !gP(r.proyectoId));
+          const weird = registros.filter(r => r.estado === "aprobado" && !r.facturado && !gP(r.proyectoId));
+          alert("Registros SIN proyecto válido: " + orphans.length + "\n\n" + orphans.map(r => r.trabajador + " | " + r.estado + " | " + (r.descripcion || (r.lineasGrupo||[]).map(l=>l.conceptoId).join(",")||r.conceptoId||"?") + " | proyId:" + r.proyectoId).join("\n"));
+        }}, "Ver huérfanos"),
+        /*#__PURE__*/React.createElement(Btn, { sm: true, variant: "ghost", style: { color: "#dc2626" }, onClick: () => {
+          const orphans = registros.filter(r => !gP(r.proyectoId));
+          if (orphans.length === 0) { alert("No hay registros huérfanos"); return; }
+          const names = orphans.map(r => (r.trabajador||"?") + " | " + (r.descripcion||(r.lineasGrupo||[]).map(l=>l.conceptoId).join(",")||r.conceptoId||"?")).join("\n");
+          if (window.confirm("Eliminar " + orphans.length + " registro(s) sin proyecto?\n\n" + names)) {
+            setRegistros(rs => rs.filter(r => gP(r.proyectoId)));
+          }
+        }}, "Eliminar huérfanos")
+      )
+    ),
+    /*#__PURE__*/React.createElement("div", { style: { fontSize: 11, color: "#666", display: "flex", gap: 16, flexWrap: "wrap" } },
+      /*#__PURE__*/React.createElement("span", null, "Sin proyecto válido: ", /*#__PURE__*/React.createElement("strong", null, registros.filter(r => !gP(r.proyectoId)).length)),
+      /*#__PURE__*/React.createElement("span", null, "Total registros: ", /*#__PURE__*/React.createElement("strong", null, registros.length)),
+      /*#__PURE__*/React.createElement("span", null, "Jordi pendientes certif: ", /*#__PURE__*/React.createElement("strong", null, registros.filter(r => (r.trabajador||r.creadoPor||"").toLowerCase().includes("jordi") && r.estado === "aprobado" && !r.facturado).length))
+    )
+  ),
+  /*#__PURE__*/React.createElement("div", {
     style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }
   },
     /*#__PURE__*/React.createElement("h2", { style: { fontSize: 17, fontWeight: 700 } }, "Configuraci\xF3n"),
@@ -8745,7 +8771,12 @@ var factVencidas = facturas.filter(function(f){return f.fechaVto&&f.fechaVto<tod
       {est:"Anulada",  col:"#9ca3af",bg:"#f3f4f6",bd:"#d1d5db"}
     ];
     return GRUPOS.map(function(g){
-      var grupo=fOfertas.filter(function(o){return (o.estado||"Borrador")===g.est;});
+      var grupo=fOfertas.filter(function(o){return (o.estado||"Borrador")===g.est;}).sort(function(a,b){
+        var na=a.numero||""; var nb=b.numero||"";
+        var ma=na.match(/(\d+)/g); var mb=nb.match(/(\d+)/g);
+        if(ma&&mb){var d=Number(mb[mb.length-1])-Number(ma[ma.length-1]);if(d!==0)return d;}
+        return nb.localeCompare(na);
+      });
       if(grupo.length===0)return null;
       var isOpen=!collapsedOfGrupos["of_"+g.est];
       var totalGrupo=grupo.reduce(function(a,o){return a+calcOfertaTotal(o.lineas||[]);},0);
@@ -9501,6 +9532,14 @@ var factVencidas = facturas.filter(function(f){return f.fechaVto&&f.fechaVto<tod
         color: C.text
       }
     }, fmtE(calcOfertaLinea(l))), /*#__PURE__*/React.createElement("td", {
+      style: { padding: "4px 3px", minWidth: 120 }
+    }, /*#__PURE__*/React.createElement("input", {
+      type: "text",
+      value: l.comentario || "",
+      onChange: e => updLineaOferta(l.id, "comentario", e.target.value),
+      placeholder: "Observaciones...",
+      style: { width: "100%", padding: "3px 5px", border: "1px solid " + C.border, borderRadius: 4, fontSize: 11, fontFamily: "inherit", background: C.inputBg, outline: "none" }
+    })), /*#__PURE__*/React.createElement("td", {
       style: {
         padding: "4px 3px",
         textAlign: "center"
