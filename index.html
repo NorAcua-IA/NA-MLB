@@ -97,6 +97,14 @@ async function sv(key, d) {
     }
   } catch (e) {
     console.error('[NorAcua] sv error:', e);
+    // Mostrar error visible al usuario
+    const nombre = typeof key === "string" ? key.replace(/na-v2.-/g,"") : key;
+    const msg = '⚠️ ERROR AL GUARDAR "'+ nombre +'": los datos NO se han guardado en el servidor.\n\nPor favor NO cierres esta pestaña y avisa a soporte.'
+    + '\n\nError: ' + (e?.message || e);
+    if (!window._svErrorShown) {
+      window._svErrorShown = true;
+      setTimeout(() => { alert(msg); window._svErrorShown = false; }, 100);
+    }
   }
 }
 
@@ -3394,7 +3402,24 @@ function App() {
     if (!loading) sv(SK.series, series);
   }, [series, loading]);
   useEffect(() => {
-    if (!loading) sv(SK.facturas, facturas);
+    if (!loading) {
+      (async () => {
+        try {
+          // Read-before-write: evita colisión si otro admin guardó entre medias
+          const fresh = await ld(SK.facturas, null);
+          if (fresh && fresh.length > 0) {
+            const localIds = new Set(facturas.map(f => f.id));
+            // Mis facturas mandan; añado las de Supabase que yo no tengo (de Nacho)
+            const merged = [...facturas, ...fresh.filter(f => !localIds.has(f.id))];
+            await sv(SK.facturas, merged);
+          } else {
+            await sv(SK.facturas, facturas);
+          }
+        } catch(e) {
+          await sv(SK.facturas, facturas);
+        }
+      })();
+    }
   }, [facturas, loading]);
   useEffect(() => {
     if (!loading) sv(SK.estaciones, estaciones);
