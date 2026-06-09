@@ -4423,35 +4423,34 @@ function App() {
     });
   };
   const yr = yrNow();
-  const factYear = facturas.filter(f => (safeYear(f.creadoEn) === yr || safeYear(f.fecha) === yr) && f.estado !== "Anulada");
-  const totPend = facturas.filter(f => f.estado === "Enviada" && (safeYear(f.creadoEn) === yr || safeYear(f.fecha) === yr)).reduce((s, f) => s + calcDocTotal(f).total, 0);
-  const totCob = facturas.filter(f => f.estado === "Cobrada" && safeYear(f.creadoEn) === yr).reduce((s, f) => s + calcDocTotal(f).total, 0);
+  const factYear = facturas.filter(f => {
+    const fullYr = new Date().getFullYear();
+    return (safeYear(f.creadoEn) === fullYr || safeYear(f.fecha) === fullYr) && f.estado !== "Anulada";
+  });
+  const totPend = facturas.filter(f => f.estado === "Enviada" && ((f2y=>{return safeYear(f.creadoEn)===f2y||safeYear(f.fecha)===f2y;})(new Date().getFullYear()))).reduce((s, f) => s + calcDocTotal(f).total, 0);
+  const totCob = facturas.filter(f => f.estado === "Cobrada" && safeYear(f.creadoEn) === new Date().getFullYear()).reduce((s, f) => s + calcDocTotal(f).total, 0);
   const totFactYear = factYear.reduce((s, f) => s + calcDocTotal(f).base, 0);
   const ivaYear = factYear.reduce((s, f) => s + calcDocTotal(f).iva, 0);
-  const totPorSerie = useMemo(() => {
+      const totPorSerie = useMemo(() => {
     const m = {};
-    series.forEach(s => {
-      m[s.codigo] = {
-        base: 0,
-        iva: 0,
-        total: 0
-      };
-    });
-    factYear.forEach(f => {
-      const s = series.find(x => x.codigo === f.serie) || gS(f.serieId);
-      if (s) {
-        const {
-          base,
-          iva,
-          total
-        } = calcDocTotal(f);
-        m[s.codigo].base += base;
-        m[s.codigo].iva += iva;
-        m[s.codigo].total += total;
+    series.forEach(s => { m[s.codigo] = { base: 0, iva: 0, total: 0 }; });
+    facturas.filter(f => f.estado !== "Anulada" && f.estado !== "Borrador").forEach(f => {
+      // 1. f.serie directo (facturas recientes)
+      // 2. serieId exacto contra series[].id
+      // 3. serieId fuzzy: "s_dr" contiene "dr" → DR (facturas antiguas)
+      const k = f.serie ||
+                series.find(s => s.id === f.serieId)?.codigo ||
+                (f.serieId && series.find(s => f.serieId.toLowerCase().includes(s.codigo.toLowerCase()))?.codigo) ||
+                null;
+      if (k && m[k]) {
+        const { base, iva, total } = calcDocTotal(f);
+        m[k].base = Math.round((m[k].base + base) * 100) / 100;
+        m[k].iva  = Math.round((m[k].iva  + iva)  * 100) / 100;
+        m[k].total= Math.round((m[k].total + total)* 100) / 100;
       }
     });
     return m;
-  }, [factYear, series]);
+  }, [facturas, series]);
   const proysFiltrados = proyectos.filter(p => isAdmin || p.zona);
   const concsActivos = concs.filter(c => c.activo !== false);
 
@@ -4480,7 +4479,7 @@ function App() {
         const allCO = lineas.length > 0 && lineas.every(l => l.certifOferta);
         if (x.estadoCertif === "finalizado" || allAprob || allCO) return false;
         if (x.ofertaCodigo || (x.ofertaCodigos && x.ofertaCodigos.length > 0)) return false;
-        return x.estado === "pendiente" || x.estado === "rechazado";
+        return x.estado === "pendiente";
       });
     }
     // Vista Revisión: pendiente + aprobado + ofertada + pendiente con oferta asignada
@@ -5111,7 +5110,30 @@ var factVencidas = facturas.filter(function(f){return f.fechaVto&&f.fechaVto<tod
             var detail=Object.entries(bySerie).sort(function(a,b){return b[1]-a[1];}).map(function(e){return e[0]+": "+fmtE(e[1]);}).join(" · ");
             return KCard({label:"Facturado últimos 30 días",value:fmtE(total),detail:detail||null,color:"#1c3e5e"});
           })(),
-          (function(){var pAct=proyectos.filter(function(p){return p.activo!==false;}).length;return KCard({label:"Proyectos activos",value:pAct,color:"#1c3e5e",sub:"proyectos",detail:proyInactivos.length>0?proyInactivos.length+" sin actividad >30d":null});})()
+          (function(){
+            var now=new Date();
+            var q=Math.floor(now.getMonth()/3);
+            var qY=now.getFullYear();
+            var qStart=new Date(qY,q*3,1).toISOString().slice(0,10);
+            var qEnd=new Date(qY,(q+1)*3,1).toISOString().slice(0,10);
+            var qLabels=["Q1 Ene–Mar","Q2 Abr–Jun","Q3 Jul–Sep","Q4 Oct–Dic"];
+            var qFacts=facturas.filter(function(f){
+              var d=(f.fecha||f.creadoEn||"").slice(0,10);
+              return d>=qStart&&d<qEnd&&["Enviada","Pendiente","Cobrada","Vencida"].includes(f.estado);
+            });
+            var base=qFacts.reduce(function(a,f){return a+calcDocTotal(f).base;},0);
+            var iva=qFacts.reduce(function(a,f){return a+calcDocTotal(f).iva;},0);
+            var suplidos=qFacts.reduce(function(a,f){
+              return a+(f.lineas||[]).filter(function(l){return l.esSuplido||l.tipo==="suplido";}).reduce(function(s,l){return s+(l.sub||calcLinea(l,1).sub||0);},0);
+            },0);
+            var total=base+iva;
+            return KCard({label:"Facturación "+qLabels[q],value:fmtE(total),
+              sub:"Base: "+fmtE(base)+" · IVA: "+fmtE(iva),
+              detail:suplidos>0?"Suplidos: "+fmtE(suplidos):qFacts.length+" facturas",
+              color:"#1c3e5e",
+              onClick:function(){setModulo("facturacion");setViewF("lista");}
+            });
+          })()
         )
 
         /* Row 4 — Ingresos por técnico */
@@ -5847,7 +5869,7 @@ var factVencidas = facturas.filter(function(f){return f.fechaVto&&f.fechaVto<tod
       const lineas = r.lineasGrupo || [];
       const allAprob = lineas.length > 0 && lineas.every(l => l.certifAprobada);
       const allCO = lineas.length > 0 && lineas.every(l => l.certifOferta);
-      if (!(r.estadoCertif === "finalizado" || allAprob || r.estado === "aprobado" || r.estado === "certificado" || r.estado === "certif_oferta" || allCO)) return false;
+      if (!(r.estadoCertif === "finalizado" || allAprob || r.estado === "aprobado" || r.estado === "certificado" || r.estado === "certif_oferta" || allCO || r.estado === "rechazado")) return false;
       if (fAdmArchEstado === "aprobado" && r.estado !== "aprobado") return false;
       if (fAdmArchEstado === "certificado" && !(r.estadoCertif === "finalizado" || allAprob)) return false;
       if (fAdmArchEstado === "certif_oferta" && r.estado !== "certif_oferta") return false;
@@ -5928,6 +5950,17 @@ var factVencidas = facturas.filter(function(f){return f.fechaVto&&f.fechaVto<tod
                     ),
                     /*#__PURE__*/React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6 } },
                       gT(r) != null && /*#__PURE__*/React.createElement("span", { style: { fontSize: 12, fontWeight: 700, color: C.textSec, whiteSpace: "nowrap" } }, fmtE(gT(r))),
+                      r.estado === "rechazado" && /*#__PURE__*/React.createElement("button", {
+                        title: "Eliminar actividad rechazada",
+                        onClick: e => {
+                          e.stopPropagation();
+                          if (window.confirm("¿Eliminar esta actividad rechazada? Esta acción no se puede deshacer.")) {
+                            setRegistros(rs => rs.filter(x => x.id !== r.id));
+                            setDeletedRegIds(prev => new Set([...prev, r.id]));
+                          }
+                        },
+                        style: { fontSize: 11, background: "#dc2626", border: "none", color: "#fff", borderRadius: 5, padding: "2px 8px", cursor: "pointer", fontWeight: 700 }
+                      }, "\uD83D\uDDD1 Eliminar"),
                       /*#__PURE__*/React.createElement("button", {
                         title: "Revertir actividad",
                         onClick: e => {
@@ -6934,7 +6967,8 @@ var factVencidas = facturas.filter(function(f){return f.fechaVto&&f.fechaVto<tod
       gap: 9,
       color: C.textSec
     }
-  }, /*#__PURE__*/React.createElement("span", null, "Base: ", /*#__PURE__*/React.createElement("strong", null, fmtE(totPorSerie[s.codigo]?.base))), /*#__PURE__*/React.createElement("span", null, "IVA: ", /*#__PURE__*/React.createElement("strong", null, fmtE(totPorSerie[s.codigo]?.iva))), /*#__PURE__*/React.createElement("span", null, "Total: ", /*#__PURE__*/React.createElement("strong", null, fmtE(totPorSerie[s.codigo]?.total))))))), /*#__PURE__*/React.createElement("div", {
+  }, /*#__PURE__*/React.createElement("span", null, "Base: ", /*#__PURE__*/React.createElement("strong", null, fmtE(totPorSerie[s.codigo]?.base))), /*#__PURE__*/React.createElement("span", null, "IVA: ", /*#__PURE__*/React.createElement("strong", null, fmtE(totPorSerie[s.codigo]?.iva))), /*#__PURE__*/React.createElement("span", null, "Total: ", /*#__PURE__*/React.createElement("strong", null, fmtE(totPorSerie[s.codigo]?.total))))))),
+    /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
       justifyContent: "space-between",
