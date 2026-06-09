@@ -2802,7 +2802,7 @@ function genPDFFactura({
     ivaMap[k] += calcLinea(l, neg).sub;
     totalDto += (Number(l.precio) || 0) * (Number(l.uds) || 1) * ((Number(l.descuento) || 0) / 100) * neg;
   });
-  const ivaRows = Object.entries(ivaMap).filter(([, b]) => b !== 0).map(([p, b]) => `<tr><td style="text-align:right;padding:2px 8px">IVA ${p}%:</td><td style="text-align:right;padding:2px 8px">${fmtN(b * Number(p) / 100)}</td></tr>`).join("");
+  const ivaRows = Object.entries(ivaMap).filter(([, b]) => b !== 0).map(([p, b]) => `<tr><td style="text-align:right;padding:2px 8px">IVA ${p}%:</td><td style="text-align:right;padding:2px 8px">${fmtN(Math.round(b * Number(p)) / 100)}</td></tr>`).join("");
   const poEfectiva = doc.poRef || poRef || "";
   return `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
 *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important}
@@ -4003,12 +4003,12 @@ function App() {
             const c = concs.find(x => x.id === l.conceptoId);
             const cant = (l.certifAprobada && l.cantCertif != null) ? l.cantCertif : (l.cantidad || 1);
             const pu = l.precioManual != null ? l.precioManual : c?.p?.[p.zona] ?? 0;
-            lineas.push({ id: `l${Date.now()}${Math.random().toString(36).slice(2)}`, concepto: `${c?.nombre || "—"}${!esMulti && p.po ? ` — PO: ${p.po}` : ""}${p.estacion ? ` — ${p.estacion}` : ""} (${fmtD(r.fecha)})`, uds: cant, precio: pu, descuento: 0, iva: ivaDefecto });
+            lineas.push({ id: `l${Date.now()}${Math.random().toString(36).slice(2)}`, concepto: `${c?.nombre || "—"}${!esMulti && p.po ? ` — PO: ${p.po}` : ""}${p.estacion ? ` — ${p.estacion}` : ""} (${fmtD(r.fecha)})`, uds: cant, precio: pu, descuento: Number(l.descuento) || 0, iva: ivaDefecto });
           });
         } else {
           const c = gC(r.conceptoId);
           const pu = r.precioManual != null ? r.precioManual : c?.p?.[p.zona] ?? 0;
-          lineas.push({ id: `l${Date.now()}${Math.random().toString(36).slice(2)}`, concepto: `${c?.nombre || "—"}${!esMulti && p.po ? ` — PO: ${p.po}` : ""}${p.estacion ? ` — ${p.estacion}` : ""} (${fmtD(r.fecha)})`, uds: r.cantidad || 1, precio: pu, descuento: 0, iva: ivaDefecto });
+          lineas.push({ id: `l${Date.now()}${Math.random().toString(36).slice(2)}`, concepto: `${c?.nombre || "—"}${!esMulti && p.po ? ` — PO: ${p.po}` : ""}${p.estacion ? ` — ${p.estacion}` : ""} (${fmtD(r.fecha)})`, uds: r.cantidad || 1, precio: pu, descuento: Number(r.descuento) || 0, iva: ivaDefecto });
         }
       });
     });
@@ -4141,6 +4141,11 @@ function App() {
         setRegistros(regs => regs.map(r =>
           _regIds.includes(r.id) ? { ...r, facturado: true, facturaRef: factNum } : r
         ));
+      }
+      // Marcar informe como facturado y asociar número de factura
+      if (_histId) {
+        const factNum = editDoc.numero || "—";
+        setHistorico(h => h.map(x => x.id === _histId ? { ...x, estado: "facturado", facturaRef: factNum } : x));
       }
       // Marcar también las actividades vinculadas por ofertaCodigo
       if (cleanDoc.ofertaRef || cleanDoc.observaciones?.startsWith("Ref. oferta:")) {
@@ -6047,7 +6052,21 @@ var factVencidas = facturas.filter(function(f){return f.fechaVto&&f.fechaVto<tod
     );
   })()
 )
-, view === "informes" && isAdmin && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("h2", {
+, view === "informes" && isAdmin && (() => {
+    // Auto-sync: if a facturado informe has regIds not yet marked → mark them
+    historico.filter(inf => inf.estado === "facturado" && (inf.regIds||[]).length > 0).forEach(inf => {
+      const unmarked = (inf.regIds||[]).filter(id => {
+        const r = registros.find(x => x.id === id);
+        return r && !r.facturado;
+      });
+      if (unmarked.length > 0) {
+        const ref = inf.facturaRef || "—";
+        setRegistros(rs => rs.map(r => unmarked.includes(r.id) ? { ...r, facturado: true, facturaRef: ref } : r));
+      }
+    });
+    return null;
+  })(),
+  view === "informes" && isAdmin && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("h2", {
     style: {
       fontSize: 17,
       fontWeight: 700,
@@ -6251,21 +6270,22 @@ var factVencidas = facturas.filter(function(f){return f.fechaVto&&f.fechaVto<tod
   }), " PDF"), inf.estado === "borrador" && /*#__PURE__*/React.createElement(Btn, {
     sm: true,
     variant: "ghost",
-    onClick: () => setHistorico(h => h.map(x => x.id === inf.id ? {
-      ...x,
-      estado: "enviado"
-    } : x)),
-    style: {
-      color: C.primary
-    }
-  }, "Enviar"), inf.estado === "enviado" && /*#__PURE__*/React.createElement(Btn, {
-    sm: true,
-    variant: "success",
-    onClick: () => setHistorico(h => h.map(x => x.id === inf.id ? {
-      ...x,
-      estado: "aprobado"
-    } : x))
-  }, "\u2713 Aprobar"), (inf.estado === "aprobado" || inf.estado === "enviado") && /*#__PURE__*/React.createElement(Btn, {
+    onClick: () => setHistorico(h => h.map(x => x.id === inf.id ? { ...x, estado: "enviado" } : x)),
+    style: { color: C.primary }
+  }, "Enviar"),
+  inf.estado === "enviado" && /*#__PURE__*/React.createElement(Btn, {
+    sm: true, variant: "ghost",
+    onClick: () => setHistorico(h => h.map(x => x.id === inf.id ? { ...x, estado: "borrador" } : x)),
+    style: { color: C.muted, fontSize: 10 }
+  }, "\u21A9 Borrador"), inf.estado === "enviado" && /*#__PURE__*/React.createElement(Btn, {
+    sm: true, variant: "success",
+    onClick: () => setHistorico(h => h.map(x => x.id === inf.id ? { ...x, estado: "aprobado" } : x))
+  }, "\u2713 Aprobar"),
+  inf.estado === "aprobado" && /*#__PURE__*/React.createElement(Btn, {
+    sm: true, variant: "ghost",
+    onClick: () => setHistorico(h => h.map(x => x.id === inf.id ? { ...x, estado: "enviado" } : x)),
+    style: { color: C.muted, fontSize: 10 }
+  }, "\u21A9 Enviado"), (inf.estado === "aprobado" || inf.estado === "enviado") && /*#__PURE__*/React.createElement(Btn, {
     sm: true,
     style: {
       background: C.purple,
@@ -6275,13 +6295,16 @@ var factVencidas = facturas.filter(function(f){return f.fechaVto&&f.fechaVto<tod
   }, /*#__PURE__*/React.createElement(Ic, {
     d: P.bill,
     sz: 10
-  }), " Facturar"), inf.estado === "facturado" && /*#__PURE__*/React.createElement("span", {
-    style: {
-      fontSize: 11,
-      color: C.purple,
-      fontWeight: 700
-    }
-  }, "\u2713 Facturado"), /*#__PURE__*/React.createElement(Btn, {
+  }), " Facturar"), inf.estado === "facturado" && /*#__PURE__*/React.createElement(React.Fragment, {key: "fac"},
+    /*#__PURE__*/React.createElement("span", {
+      style: { fontSize: 11, color: C.purple, fontWeight: 700 }
+    }, "\u2713 Facturado" + (inf.facturaRef ? " \xB7 " + inf.facturaRef : "")),
+    /*#__PURE__*/React.createElement(Btn, {
+      sm: true, variant: "ghost",
+      style: { color: C.purple, fontSize: 10 },
+      title: "Volver a generar la factura pre-rellena con los datos de este informe",
+      onClick: () => facturarInforme(inf)
+    }, "\u21A9 Re-facturar")), /*#__PURE__*/React.createElement(Btn, {
     sm: true,
     variant: "ghost",
     onClick: () => setHistorico(h => h.filter(x => x.id !== inf.id)),
