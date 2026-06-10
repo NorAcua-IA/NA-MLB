@@ -3501,11 +3501,22 @@ function App() {
         if (es) {
           const loaded = await aesDec(k, es);
           const isOld = loaded.some(c => /^c\d+$/.test(c.id));
-          if (isOld) await saveConcs(FRESH_CAT);else await saveConcs(loaded.map(c => ({
-            ...c,
-            capId: c.capId || "",
-            activo: c.activo !== false
-          })));
+          if (isOld) {
+            await saveConcs(FRESH_CAT);
+          } else {
+            // Aplicar flags activo/inactivo desde cActivos (fuente de verdad)
+            const activosRaw = await ld(SK.cActivos, null);
+            const activosMap = activosRaw && Array.isArray(activosRaw)
+              ? Object.fromEntries(activosRaw.map(x => [x.id, x.activo !== false]))
+              : null;
+            await saveConcs(loaded.map(c => ({
+              ...c,
+              capId: c.capId || "",
+              activo: activosMap
+                ? (activosMap[c.id] !== undefined ? activosMap[c.id] : c.activo !== false)
+                : c.activo !== false
+            })));
+          }
         } else await saveConcs(FRESH_CAT);
       } catch {
         await saveConcs(FRESH_CAT);
