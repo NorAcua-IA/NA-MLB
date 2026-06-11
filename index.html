@@ -3031,6 +3031,7 @@ function App() {
   const [proyectos, setProyectos] = useState([]);
   const [registros, setRegistros] = useState([]);
   const [deletedRegIds, setDeletedRegIds] = useState(new Set());
+  const [deletedHistIds, setDeletedHistIds] = useState(new Set());
   const [concs, setConcs] = useState([]);
   const [trabs, setTrabs] = useState(["Daniel", "Jordi Santos", "Yennyfer Lemus", "Técnico NorAcua", "Carlos García"]);
   // FIX #11: responsables con sexo
@@ -3393,7 +3394,20 @@ function App() {
     if (!loading) sv(SK.users, usrs);
   }, [usrs, loading]);
   useEffect(() => {
-    if (!loading) sv(SK.hist, historico);
+    if (!loading) {
+      (async () => {
+        try {
+          const fresh = await ld(SK.hist, null);
+          if (fresh && Array.isArray(fresh) && fresh.length > 0) {
+            const myIds = new Set(historico.map(h => h.id));
+            const merged = [...historico, ...fresh.filter(h => !myIds.has(h.id) && !deletedHistIds.has(h.id))];
+            await sv(SK.hist, merged);
+          } else {
+            await sv(SK.hist, historico);
+          }
+        } catch(e) { await sv(SK.hist, historico); }
+      })();
+    }
   }, [historico, loading]);
   useEffect(() => {
     if (!loading) sv(SK.clientes, clientes);
@@ -6343,7 +6357,7 @@ var factVencidas = facturas.filter(function(f){return f.fechaVto&&f.fechaVto<tod
     }, "\u21A9 Re-facturar")), /*#__PURE__*/React.createElement(Btn, {
     sm: true,
     variant: "ghost",
-    onClick: () => setHistorico(h => h.filter(x => x.id !== inf.id)),
+    onClick: () => { setHistorico(h => h.filter(x => x.id !== inf.id)); setDeletedHistIds(prev => new Set([...prev, inf.id])); },
     style: {
       color: C.danger
     }
