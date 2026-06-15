@@ -4,7 +4,7 @@
 <style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:'Segoe UI',-apple-system,sans-serif;background:#f4f6f8;}</style>
 </head><body><div id='root'></div>
 <script>
-const SB_URL="https://lhmawivuxgekxleqvqle.supabase.co";const SB_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxobWF3aXZ1eGdla3hsZXF2cWxlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg2MTY1NTYsImV4cCI6MjA5NDE5MjU1Nn0.frbxipEXiMfxsiRjo9rilHDiXoc3BqYGxOh-Qgq0VhU";const SK_TABLE_MAP={"na-v20-proyectos":"na_proyectos","na-v20-registros":"na_registros","na-v21-facturas":"na_facturas","na-v21-ofertas":"na_ofertas","na-v20-clientes":"na_clientes","na-v21-conceptos-enc":"na_conceptos","na-v20-trabajadores":"na_trabajadores","na-v20-responsables":"na_responsables","na-v20-estaciones":"na_estaciones","na-v20-series":"na_series","na-v21-cfg-ofertas":"na_cfg_ofertas","na-v20-historico":"na_historico","na-last-login":"na_cfg_ofertas","na-v21-conceptos-activos":"na_cfg_ofertas","na-backup-auto":"na_cfg_ofertas","na-v25-hsse-sups":"na_registros","na-v25-hsse-cfg":"na_cfg_ofertas","na-v25-hsse-hist":"na_cfg_ofertas"};const _sbFetch=async(path,opts={})=>{const r=await fetch(SB_URL+path,{...opts,headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json',...(opts.headers||{})}});if(!r.ok){const e=await r.text();console.error('SB error',r.status,e);return null;}const ct=r.headers.get('content-type')||'';return ct.includes('json')?r.json():null;};window.storage={get:async(key)=>{const tbl=SK_TABLE_MAP[key];if(!tbl)return null;const rows=await _sbFetch('/rest/v1/'+tbl+'?id=eq.'+encodeURIComponent(key)+'&select=data',{method:'GET'});const lsBk=localStorage.getItem('na_bk_'+key);if(!rows||rows.length===0){// Supabase empty - check local backup
+const SB_URL="https://lhmawivuxgekxleqvqle.supabase.co";const SB_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxobWF3aXZ1eGdla3hsZXF2cWxlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg2MTY1NTYsImV4cCI6MjA5NDE5MjU1Nn0.frbxipEXiMfxsiRjo9rilHDiXoc3BqYGxOh-Qgq0VhU";const SK_TABLE_MAP={"na-v20-proyectos":"na_proyectos","na-v20-registros":"na_registros","na-v21-facturas":"na_facturas","na-v21-ofertas":"na_ofertas","na-v20-clientes":"na_clientes","na-v21-conceptos-enc":"na_conceptos","na-v20-trabajadores":"na_trabajadores","na-v20-responsables":"na_responsables","na-v20-estaciones":"na_estaciones","na-v20-series":"na_series","na-v21-cfg-ofertas":"na_cfg_ofertas","na-v20-historico":"na_historico","na-last-login":"na_cfg_ofertas","na-v21-conceptos-activos":"na_cfg_ofertas","na-backup-auto":"na_cfg_ofertas","na-v25-hsse-sups":"na_registros","na-v25-hsse-cfg":"na_cfg_ofertas","na-v25-hsse-hist":"na_cfg_ofertas","na-v21-deleted-ids":"na_cfg_ofertas"};const _sbFetch=async(path,opts={})=>{const r=await fetch(SB_URL+path,{...opts,headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json',...(opts.headers||{})}});if(!r.ok){const e=await r.text();console.error('SB error',r.status,e);return null;}const ct=r.headers.get('content-type')||'';return ct.includes('json')?r.json():null;};window.storage={get:async(key)=>{const tbl=SK_TABLE_MAP[key];if(!tbl)return null;const rows=await _sbFetch('/rest/v1/'+tbl+'?id=eq.'+encodeURIComponent(key)+'&select=data',{method:'GET'});const lsBk=localStorage.getItem('na_bk_'+key);if(!rows||rows.length===0){// Supabase empty - check local backup
 if(lsBk){console.warn('[NorAcua] Supabase vacío para '+key+', usando localStorage');return {key,value:lsBk};}return null;}// Ambos disponibles: si localStorage tiene MÁS items, la escritura Supabase falló (suspensión) — usar localStorage
 const sbData=rows[0].data;try{const sbArr=JSON.parse(sbData);const lsArr=lsBk?JSON.parse(lsBk):null;if(Array.isArray(sbArr)&&Array.isArray(lsArr)&&lsArr.length>sbArr.length){console.warn('[NorAcua] localStorage más reciente para '+key+' ('+lsArr.length+' vs '+sbArr.length+' items) — recuperando');return {key,value:lsBk};}}catch(e){}return {key,value:sbData};},set:async(key,value)=>{const tbl=SK_TABLE_MAP[key];if(!tbl)return null;// Save to localStorage backup first
 try{localStorage.setItem('na_bk_'+key,value);localStorage.setItem('na_bk_ts',new Date().toISOString());}catch(e){}await _sbFetch('/rest/v1/'+tbl,{method:'POST',body:JSON.stringify([{id:key,data:value,updated_at:new Date().toISOString()}]),headers:{'Prefer':'resolution=merge-duplicates,return=minimal'}});return {key,value};},delete:async(key)=>{const tbl=SK_TABLE_MAP[key];if(!tbl)return null;await _sbFetch('/rest/v1/'+tbl+'?id=eq.'+encodeURIComponent(key),{method:'DELETE'});return {key,deleted:true}}};
@@ -315,7 +315,8 @@ const SK = {
   cActivos: "na-v21-conceptos-activos",
   hsseSups: "na-v25-hsse-sups",
   hsseCfg: "na-v25-hsse-cfg",
-  hsseHist: "na-v25-hsse-hist"
+  hsseHist: "na-v25-hsse-hist",
+  deletedIds: "na-v21-deleted-ids"
 };
 const ZONAS = ["CENTRO", "NORTE", "CATALUÑA", "BALEARES", "OTROS"];
 const IVA_OPS = [{v:0,l:"0%"},{v:4,l:"4%"},{v:10,l:"10%"},{v:21,l:"21%"}];
@@ -3218,7 +3219,13 @@ function App() {
           sexo: "M"
         }]), ld(SK.hist, []), ld(SK.clientes, CLIENTES_DEF), ld(SK.series, SERIES_DEF), ld(SK.facturas, []), ld(SK.estaciones, []), ld(SK.ofertas, []).then(v => Array.isArray(v) ? v : Object.values(v || {})), ld(SK.cfgOfertas, CFG_OFERTAS_DEF), ld(SK.hsseSups, []), ld(SK.hsseCfg, {tiposActividad:["Obra menor mantenimiento","Itinerante","Obra menor","Obra mayor"],preciosPorZona:{CENTRO:0,NORTE:0,"CATALUÑA":0,BALEARES:0,OTROS:0},tecnicosExternos:[],poAnual:"",clienteIdBP:""}), ld(SK.hsseHist, [])]);
         setProyectos(p);
-        setRegistros(r);
+        // Cargar IDs borrados persistidos (sobreviven a recargas/sesiones nuevas)
+        const delIds = await ld(SK.deletedIds, { regs: [], hist: [] });
+        const delRegSet = new Set(delIds.regs || []);
+        const delHistSet = new Set(delIds.hist || []);
+        setDeletedRegIds(delRegSet);
+        setDeletedHistIds(delHistSet);
+        setRegistros((r || []).filter(reg => !delRegSet.has(reg.id)));
         // FIX v2.7.1: garantizar siempre los 5 trabajadores base aunque Supabase tenga una lista antigua
         const REQUIRED_TRABS = ["Daniel", "Jordi Santos", "Yennyfer Lemus", "Técnico NorAcua", "Carlos García"];
         const mergedT = Array.isArray(t) ? [...new Set([...t, ...REQUIRED_TRABS])] : REQUIRED_TRABS;
@@ -3234,7 +3241,7 @@ function App() {
           sexo: "M"
         }];
         setResps(rsMig);
-        setHistorico(h);
+        setHistorico((h || []).filter(inf => !delHistSet.has(inf.id)));
         setClientes(cl.map(c => ({
           codigoRef: "",
           ...c
@@ -3409,6 +3416,26 @@ function App() {
       })();
     }
   }, [historico, loading]);
+
+  // Persistir IDs borrados — sobrevive a recargas y nuevas sesiones
+  useEffect(() => {
+    if (!loading) {
+      (async () => {
+        const payload = { regs: [...deletedRegIds], hist: [...deletedHistIds] };
+        try {
+          const fresh = await ld(SK.deletedIds, { regs: [], hist: [] });
+          const merged = {
+            regs: [...new Set([...(fresh.regs||[]), ...payload.regs])],
+            hist: [...new Set([...(fresh.hist||[]), ...payload.hist])]
+          };
+          await sv(SK.deletedIds, merged);
+        } catch(e) {
+          await sv(SK.deletedIds, payload);
+        }
+      })();
+    }
+  }, [deletedRegIds, deletedHistIds, loading]);
+
   useEffect(() => {
     if (!loading) sv(SK.clientes, clientes);
   }, [clientes, loading]);
@@ -4730,16 +4757,19 @@ function App() {
     events.forEach(e => window.addEventListener(e, resetTimer, { passive: true }));
     const doLogout = () => {
       events.forEach(e => window.removeEventListener(e, resetTimer));
-      // FIX v2.7.1: guardar estado antes de cerrar sesión (fire-and-forget)
-      const cur = window._naStateRef;
-      if (cur) {
-        // No push ciego de datos compartidos — el merge en useEffect es el mecanismo correcto
-      }
-      setFase("login"); setUser(null); setAutoLogoutWarn(false);
-      alert("Sesión cerrada automáticamente por inactividad (30 min).");
+      // FIX v2.8.1: recargar la página por completo — evita que esta pestaña
+      // mantenga en memoria un estado caducado de registros/historico/facturas
+      // que podría sobreescribir Supabase si vuelve a dispararse algún guardado.
+      alert("Sesión cerrada automáticamente por inactividad (30 min). La página se recargará.");
+      window.location.reload();
     };
+    const HARD_RELOAD_MS = 4 * 60 * 60 * 1000; // 4h → recarga forzada incondicional
+    const _sessionStart = Date.now();
     const interval = setInterval(() => {
       const idle = Date.now() - _lastActivityRef.current;
+      // Recarga dura: ninguna pestaña puede quedar viva (con código/estado caducado) más de 4h,
+      // haya o no actividad. Protege contra portátiles en reposo con la pestaña abierta.
+      if (Date.now() - _sessionStart >= HARD_RELOAD_MS) { clearInterval(interval); window.location.reload(); return; }
       if (idle >= INACTIVITY_LOGOUT_MS) { clearInterval(interval); doLogout(); }
       else if (idle >= INACTIVITY_WARN_MS) { setAutoLogoutWarn(true); }
     }, 30000); // revisar cada 30s
