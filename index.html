@@ -4274,7 +4274,7 @@ function App() {
         if (ofertaCode) {
           setRegistros(regs => regs.map(r =>
             (r.ofertaCodigo === ofertaCode || (r.ofertaCodigos || []).includes(ofertaCode)) && !r.facturado
-              ? { ...r, facturado: true, facturaRef: factNum2 } : r
+              ? { ...r, facturado: true, facturaRef: factNum2, estadoCertif: "finalizado" } : r
           ));
         }
       }
@@ -5662,7 +5662,7 @@ var factVencidas = facturas.filter(function(f){return f.fechaVto&&f.fechaVto<tod
     const certPending = registros.filter(r => {
       if (r.esGrupo) {
         if (r.lineasGrupo?.some(l => l.certifEnviada && !l.certifAprobada)) return true;
-        if (r.estado === "certif_oferta" && r.estadoCertif !== "finalizado") return true;
+        if (r.estado === "certif_oferta" && r.estadoCertif !== "finalizado" && !r.facturado) return true;
         return false;
       }
       return r.certifEnviada === true && !r.estadoCertif && r.estado === "aprobado";
@@ -6013,7 +6013,7 @@ var factVencidas = facturas.filter(function(f){return f.fechaVto&&f.fechaVto<tod
       const lineas = r.lineasGrupo || [];
       const allAprob = lineas.length > 0 && lineas.every(l => l.certifAprobada);
       const allCO = lineas.length > 0 && lineas.every(l => l.certifOferta);
-      if (!(r.estadoCertif === "finalizado" || allAprob || r.estado === "aprobado" || r.estado === "certificado" || r.estado === "certif_oferta" || allCO || r.estado === "rechazado")) return false;
+      if (!(r.estadoCertif === "finalizado" || allAprob || r.estado === "aprobado" || r.estado === "certificado" || r.estado === "certif_oferta" || allCO || r.estado === "rechazado" || r.facturado)) return false;
       if (fAdmArchEstado === "aprobado" && r.estado !== "aprobado") return false;
       if (fAdmArchEstado === "certificado" && !(r.estadoCertif === "finalizado" || allAprob)) return false;
       if (fAdmArchEstado === "certif_oferta" && r.estado !== "certif_oferta") return false;
