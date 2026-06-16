@@ -4,7 +4,7 @@
 <style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:'Segoe UI',-apple-system,sans-serif;background:#f4f6f8;}</style>
 </head><body><div id='root'></div>
 <script>
-const SB_URL="https://lhmawivuxgekxleqvqle.supabase.co";const SB_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxobWF3aXZ1eGdla3hsZXF2cWxlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg2MTY1NTYsImV4cCI6MjA5NDE5MjU1Nn0.frbxipEXiMfxsiRjo9rilHDiXoc3BqYGxOh-Qgq0VhU";const SK_TABLE_MAP={"na-v20-proyectos":"na_proyectos","na-v20-registros":"na_registros","na-v21-facturas":"na_facturas","na-v21-ofertas":"na_ofertas","na-v20-clientes":"na_clientes","na-v21-conceptos-enc":"na_conceptos","na-v20-trabajadores":"na_trabajadores","na-v20-responsables":"na_responsables","na-v20-estaciones":"na_estaciones","na-v20-series":"na_series","na-v21-cfg-ofertas":"na_cfg_ofertas","na-v20-historico":"na_historico","na-last-login":"na_cfg_ofertas","na-v21-conceptos-activos":"na_cfg_ofertas","na-backup-auto":"na_cfg_ofertas","na-v25-hsse-sups":"na_registros","na-v25-hsse-cfg":"na_cfg_ofertas","na-v25-hsse-hist":"na_cfg_ofertas","na-v21-deleted-ids":"na_cfg_ofertas"};const _sbFetch=async(path,opts={})=>{const r=await fetch(SB_URL+path,{...opts,headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json',...(opts.headers||{})}});if(!r.ok){const e=await r.text();console.error('SB error',r.status,e);return null;}const ct=r.headers.get('content-type')||'';return ct.includes('json')?r.json():null;};window.storage={get:async(key)=>{const tbl=SK_TABLE_MAP[key];if(!tbl)return null;const rows=await _sbFetch('/rest/v1/'+tbl+'?id=eq.'+encodeURIComponent(key)+'&select=data',{method:'GET'});const lsBk=localStorage.getItem('na_bk_'+key);if(!rows||rows.length===0){// Supabase empty - check local backup
+const SB_URL="https://lhmawivuxgekxleqvqle.supabase.co";const SB_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxobWF3aXZ1eGdla3hsZXF2cWxlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg2MTY1NTYsImV4cCI6MjA5NDE5MjU1Nn0.frbxipEXiMfxsiRjo9rilHDiXoc3BqYGxOh-Qgq0VhU";const SK_TABLE_MAP={"na-v20-proyectos":"na_proyectos","na-v20-registros":"na_registros","na-v21-facturas":"na_facturas","na-v21-ofertas":"na_ofertas","na-v20-clientes":"na_clientes","na-v21-conceptos-enc":"na_conceptos","na-v20-trabajadores":"na_trabajadores","na-v20-responsables":"na_responsables","na-v20-estaciones":"na_estaciones","na-v20-series":"na_series","na-v21-cfg-ofertas":"na_cfg_ofertas","na-v20-historico":"na_historico","na-last-login":"na_cfg_ofertas","na-v21-conceptos-activos":"na_cfg_ofertas","na-backup-auto":"na_cfg_ofertas","na-v25-hsse-sups":"na_registros","na-v25-hsse-cfg":"na_cfg_ofertas","na-v25-hsse-hist":"na_cfg_ofertas","na-v21-deleted-ids":"na_cfg_ofertas","na-v21-golden-state":"na_cfg_ofertas"};const _sbFetch=async(path,opts={})=>{const r=await fetch(SB_URL+path,{...opts,headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json',...(opts.headers||{})}});if(!r.ok){const e=await r.text();console.error('SB error',r.status,e);return null;}const ct=r.headers.get('content-type')||'';return ct.includes('json')?r.json():null;};window.storage={get:async(key)=>{const tbl=SK_TABLE_MAP[key];if(!tbl)return null;const rows=await _sbFetch('/rest/v1/'+tbl+'?id=eq.'+encodeURIComponent(key)+'&select=data',{method:'GET'});const lsBk=localStorage.getItem('na_bk_'+key);if(!rows||rows.length===0){// Supabase empty - check local backup
 if(lsBk){console.warn('[NorAcua] Supabase vacío para '+key+', usando localStorage');return {key,value:lsBk};}return null;}// Ambos disponibles: si localStorage tiene MÁS items, la escritura Supabase falló (suspensión) — usar localStorage
 const sbData=rows[0].data;try{const sbArr=JSON.parse(sbData);const lsArr=lsBk?JSON.parse(lsBk):null;if(Array.isArray(sbArr)&&Array.isArray(lsArr)&&lsArr.length>sbArr.length){console.warn('[NorAcua] localStorage más reciente para '+key+' ('+lsArr.length+' vs '+sbArr.length+' items) — recuperando');return {key,value:lsBk};}}catch(e){}return {key,value:sbData};},set:async(key,value)=>{const tbl=SK_TABLE_MAP[key];if(!tbl)return null;// Save to localStorage backup first
 try{localStorage.setItem('na_bk_'+key,value);localStorage.setItem('na_bk_ts',new Date().toISOString());}catch(e){}await _sbFetch('/rest/v1/'+tbl,{method:'POST',body:JSON.stringify([{id:key,data:value,updated_at:new Date().toISOString()}]),headers:{'Prefer':'resolution=merge-duplicates,return=minimal'}});return {key,value};},delete:async(key)=>{const tbl=SK_TABLE_MAP[key];if(!tbl)return null;await _sbFetch('/rest/v1/'+tbl+'?id=eq.'+encodeURIComponent(key),{method:'DELETE'});return {key,deleted:true}}};
@@ -3367,24 +3367,38 @@ function App() {
   }, [proyectos, loading]);
   useEffect(() => {
     if (!loading) {
-      // Safe merge: read current Supabase, merge by id, then save
       (async () => {
         try {
           const fresh = await ld(SK.regs, null);
+          // Estado dorado: verdad inmutable en Supabase sobre qué registros están facturados
+          // Se aplica SIEMPRE antes de guardar — protege contra sesiones con estado caducado
+          const golden = await ld("na-v21-golden-state", null);
+          let base;
           if (fresh && fresh.length > 0) {
-            // Build a map of fresh data
-            const freshMap = Object.fromEntries(fresh.map(r => [r.id, r]));
-            // Override with our local changes (our version wins for our records)
             const myIds = new Set(registros.map(r => r.id));
-            const merged = [
-              ...registros, // our records (full authority)
-              ...fresh.filter(r => !myIds.has(r.id) && !deletedRegIds.has(r.id)) // others' records we don't have
+            base = [
+              ...registros,
+              ...fresh.filter(r => !myIds.has(r.id) && !deletedRegIds.has(r.id))
             ];
-            // Only save if merged differs from what we have
-            await sv(SK.regs, merged);
           } else {
-            await sv(SK.regs, registros);
+            base = [...registros];
           }
+          // Aplicar estado dorado: forzar facturado/facturaRef para los IDs que deben estarlo
+          // y filtrar registros borrados — independientemente del estado local de cualquier sesión
+          let merged = base;
+          if (golden) {
+            if (golden.facturadoIds) {
+              merged = merged.map(r => {
+                const ref = golden.facturadoIds[r.id];
+                return ref ? { ...r, facturado: true, facturaRef: ref } : r;
+              });
+            }
+            if (golden.deletedRegIds && golden.deletedRegIds.length > 0) {
+              const dSet = new Set(golden.deletedRegIds);
+              merged = merged.filter(r => !dSet.has(r.id));
+            }
+          }
+          await sv(SK.regs, merged);
         } catch(e) {
           await sv(SK.regs, registros);
         }
@@ -3405,13 +3419,24 @@ function App() {
       (async () => {
         try {
           const fresh = await ld(SK.hist, null);
+          const golden = await ld("na-v21-golden-state", null);
+          let merged;
           if (fresh && Array.isArray(fresh) && fresh.length > 0) {
             const myIds = new Set(historico.map(h => h.id));
-            const merged = [...historico, ...fresh.filter(h => !myIds.has(h.id) && !deletedHistIds.has(h.id))];
-            await sv(SK.hist, merged);
+            merged = [...historico, ...fresh.filter(h => !myIds.has(h.id) && !deletedHistIds.has(h.id))];
           } else {
-            await sv(SK.hist, historico);
+            merged = [...historico];
           }
+          // Estado dorado: eliminar informes borrados y proteger el informe facturado
+          if (golden) {
+            const delSet = new Set([...(golden.deletedHistIds || []), ...deletedHistIds]);
+            merged = merged.filter(h => !delSet.has(h.id));
+            // Si el informe facturado debe existir y no está, reintroducirlo
+            if (golden.facturadoHist && !merged.some(h => h.id === golden.facturadoHist.id)) {
+              merged = [golden.facturadoHist, ...merged];
+            }
+          }
+          await sv(SK.hist, merged);
         } catch(e) { await sv(SK.hist, historico); }
       })();
     }
@@ -4223,6 +4248,24 @@ function App() {
       if (_histId) {
         const factNum = editDoc.numero || "—";
         setHistorico(h => h.map(x => x.id === _histId ? { ...x, estado: "facturado", facturaRef: factNum } : x));
+        // Actualizar estado dorado en Supabase: protección permanente contra sesiones caducadas
+        (async () => {
+          try {
+            const prev = await ld("na-v21-golden-state", {});
+            const newFact = { ...(prev.facturadoIds || {}) };
+            (_regIds || []).forEach(id => { newFact[id] = factNum; });
+            const inf = historico.find(x => x.id === _histId);
+            const golden = {
+              ...prev,
+              facturadoIds: newFact,
+              facturadoHist: inf ? { ...inf, estado: "facturado", facturaRef: factNum } : prev.facturadoHist,
+              deletedHistIds: [...new Set([...(prev.deletedHistIds || []), ...[...deletedHistIds]])],
+              deletedRegIds: [...deletedRegIds],
+              updatedAt: new Date().toISOString()
+            };
+            await sv("na-v21-golden-state", golden);
+          } catch(e) { console.warn('[NorAcua] golden state update failed', e); }
+        })();
       }
       // Marcar también las actividades vinculadas por ofertaCodigo
       if (cleanDoc.ofertaRef || cleanDoc.observaciones?.startsWith("Ref. oferta:")) {
@@ -6058,6 +6101,12 @@ var factVencidas = facturas.filter(function(f){return f.fechaVto&&f.fechaVto<tod
                           if (window.confirm("¿Eliminar esta actividad rechazada? Esta acción no se puede deshacer.")) {
                             setRegistros(rs => rs.filter(x => x.id !== r.id));
                             setDeletedRegIds(prev => new Set([...prev, r.id]));
+                            // Persistir en estado dorado
+                            (async () => { try {
+                              const prev = await ld("na-v21-golden-state", {});
+                              const dr = [...new Set([...(prev.deletedRegIds||[]), r.id])];
+                              await sv("na-v21-golden-state", {...prev, deletedRegIds: dr, updatedAt: new Date().toISOString()});
+                            } catch(e){} })();
                           }
                         },
                         style: { fontSize: 11, background: "#dc2626", border: "none", color: "#fff", borderRadius: 5, padding: "2px 8px", cursor: "pointer", fontWeight: 700 }
@@ -6387,7 +6436,16 @@ var factVencidas = facturas.filter(function(f){return f.fechaVto&&f.fechaVto<tod
     }, "\u21A9 Re-facturar")), /*#__PURE__*/React.createElement(Btn, {
     sm: true,
     variant: "ghost",
-    onClick: () => { setHistorico(h => h.filter(x => x.id !== inf.id)); setDeletedHistIds(prev => new Set([...prev, inf.id])); },
+    onClick: () => {
+          setHistorico(h => h.filter(x => x.id !== inf.id));
+          setDeletedHistIds(prev => new Set([...prev, inf.id]));
+          // Persistir en estado dorado
+          (async () => { try {
+            const prev = await ld("na-v21-golden-state", {});
+            const dh = [...new Set([...(prev.deletedHistIds||[]), inf.id])];
+            await sv("na-v21-golden-state", {...prev, deletedHistIds: dh, updatedAt: new Date().toISOString()});
+          } catch(e){} })();
+        },
     style: {
       color: C.danger
     }
