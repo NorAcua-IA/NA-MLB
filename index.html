@@ -3502,13 +3502,24 @@ function App() {
         try{
           // Merge seguro: mi versión gana para los que ya tengo, añado los nuevos de otros usuarios
           const fresh=await ld(SK.hsseSups,null);
+          const golden=await ld("na-v21-golden-state",null);
+          let merged;
           if(fresh&&Array.isArray(fresh)&&fresh.length>0){
             const myIds=new Set(hsseSups.map(s=>s.id));
-            const merged=[...hsseSups,...fresh.filter(s=>!myIds.has(s.id))];
-            await sv(SK.hsseSups,merged);
+            merged=[...hsseSups,...fresh.filter(s=>!myIds.has(s.id))];
           }else{
-            await sv(SK.hsseSups,hsseSups);
+            merged=[...hsseSups];
           }
+          // Estado dorado: el estado (aprobado/anulado/pendiente) decidido por un admin es la
+          // verdad inmutable — protege contra sesiones de técnicos con estado local caducado
+          // (ej. Carlos con la pestaña abierta desde antes de que se apruebe una supervisión)
+          if(golden&&golden.hsseEstados){
+            merged=merged.map(s=>{
+              const ge=golden.hsseEstados[s.id];
+              return ge&&ge.estado&&ge.estado!==s.estado?{...s,estado:ge.estado,horasAdmin:ge.horasAdmin!=null?ge.horasAdmin:s.horasAdmin}:s;
+            });
+          }
+          await sv(SK.hsseSups,merged);
         }catch(e){await sv(SK.hsseSups,hsseSups);}
       })();
     }
@@ -3622,6 +3633,31 @@ function App() {
     }, 3000);
   };
   const isAdmin = user?.rol === "admin";
+  // Estado dorado HSSE: solo el admin escribe la verdad de aprobado/anulado en Supabase,
+  // así una sesión de técnico con datos caducados nunca puede revertir una aprobación/anulación
+  useEffect(()=>{
+    if(!loading&&isAdmin&&hsseSups.length>0){
+      (async()=>{
+        try{
+          const prev=await ld("na-v21-golden-state",{});
+          const prevEst=prev.hsseEstados||{};
+          const newEst={...prevEst};
+          let changed=false;
+          hsseSups.forEach(s=>{
+            if(s.estado==="aprobado"||s.estado==="anulado"){
+              if(!prevEst[s.id]||prevEst[s.id].estado!==s.estado||prevEst[s.id].horasAdmin!==s.horasAdmin){
+                newEst[s.id]={estado:s.estado,horasAdmin:s.horasAdmin};
+                changed=true;
+              }
+            }
+          });
+          if(changed){
+            await sv("na-v21-golden-state",{...prev,hsseEstados:newEst,updatedAt:new Date().toISOString()});
+          }
+        }catch(e){console.warn('[NorAcua] hsse golden state update failed',e);}
+      })();
+    }
+  },[hsseSups,loading,isAdmin]);
   const novedades = useMemo(() => {
     if (!lastLogin || !isAdmin) return [];
     const items = [];
