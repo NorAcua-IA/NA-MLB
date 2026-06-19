@@ -3406,13 +3406,52 @@ function App() {
     }
   }, [registros, loading]);
   useEffect(() => {
-    if (!loading) sv(SK.trabs, trabs);
+    if (!loading) {
+      (async () => {
+        try {
+          const fresh = await ld(SK.trabs, null);
+          if (fresh && Array.isArray(fresh) && fresh.length > 0) {
+            const merged = [...new Set([...trabs, ...fresh])];
+            await sv(SK.trabs, merged);
+          } else {
+            await sv(SK.trabs, trabs);
+          }
+        } catch(e) { await sv(SK.trabs, trabs); }
+      })();
+    }
   }, [trabs, loading]);
   useEffect(() => {
-    if (!loading) sv(SK.resps, resps);
+    if (!loading) {
+      (async () => {
+        try {
+          const fresh = await ld(SK.resps, null);
+          if (fresh && Array.isArray(fresh) && fresh.length > 0) {
+            const myNames = new Set(resps.map(r => typeof r === "object" ? r.nombre : r));
+            const merged = [...resps, ...fresh.filter(r => !myNames.has(typeof r === "object" ? r.nombre : r))];
+            await sv(SK.resps, merged);
+          } else {
+            await sv(SK.resps, resps);
+          }
+        } catch(e) { await sv(SK.resps, resps); }
+      })();
+    }
   }, [resps, loading]);
   useEffect(() => {
-    if (!loading) sv(SK.users, usrs);
+    if (!loading) {
+      (async () => {
+        try {
+          const fresh = await ld(SK.users, null);
+          if (fresh && typeof fresh === "object") {
+            // Merge por clave de usuario: lo mío manda para los usuarios que yo tengo,
+            // añado los que existan en Supabase y yo no tenga localmente
+            const merged = { ...fresh, ...usrs };
+            await sv(SK.users, merged);
+          } else {
+            await sv(SK.users, usrs);
+          }
+        } catch(e) { await sv(SK.users, usrs); }
+      })();
+    }
   }, [usrs, loading]);
   useEffect(() => {
     if (!loading) {
@@ -3462,10 +3501,50 @@ function App() {
   }, [deletedRegIds, deletedHistIds, loading]);
 
   useEffect(() => {
-    if (!loading) sv(SK.clientes, clientes);
+    if (!loading) {
+      (async () => {
+        try {
+          const fresh = await ld(SK.clientes, null);
+          if (fresh && Array.isArray(fresh) && fresh.length > 0) {
+            const myIds = new Set(clientes.map(c => c.id));
+            const merged = [...clientes, ...fresh.filter(c => !myIds.has(c.id))];
+            await sv(SK.clientes, merged);
+          } else {
+            await sv(SK.clientes, clientes);
+          }
+        } catch(e) { await sv(SK.clientes, clientes); }
+      })();
+    }
   }, [clientes, loading]);
   useEffect(() => {
-    if (!loading) sv(SK.series, series);
+    if (!loading) {
+      (async () => {
+        try {
+          const fresh = await ld(SK.series, null);
+          if (fresh && Array.isArray(fresh) && fresh.length > 0) {
+            const freshById = new Map(fresh.map(s => [s.id, s]));
+            // Por cada serie local, si existe en Supabase, los contadores se quedan con el
+            // valor MÁS ALTO de cada uno (nunca retroceder un contador de factura)
+            const merged = series.map(s => {
+              const f = freshById.get(s.id);
+              if (!f) return s;
+              return {
+                ...f,
+                ...s,
+                contFact: Math.max(s.contFact || 0, f.contFact || 0),
+                contSupl: Math.max(s.contSupl || 0, f.contSupl || 0),
+                contAbon: Math.max(s.contAbon || 0, f.contAbon || 0)
+              };
+            });
+            const myIds = new Set(series.map(s => s.id));
+            const merged2 = [...merged, ...fresh.filter(s => !myIds.has(s.id))];
+            await sv(SK.series, merged2);
+          } else {
+            await sv(SK.series, series);
+          }
+        } catch(e) { await sv(SK.series, series); }
+      })();
+    }
   }, [series, loading]);
   useEffect(() => {
     if (!loading) {
@@ -3488,13 +3567,61 @@ function App() {
     }
   }, [facturas, loading]);
   useEffect(() => {
-    if (!loading) sv(SK.estaciones, estaciones);
+    if (!loading) {
+      (async () => {
+        try {
+          const fresh = await ld(SK.estaciones, null);
+          const golden = await ld("na-v21-golden-state", null);
+          let merged = fresh && Array.isArray(fresh) && fresh.length > 0
+            ? [...new Set([...estaciones, ...fresh])]
+            : [...estaciones];
+          // Estado dorado: una estación borrada explícitamente en Config no debe poder
+          // reaparecer porque una sesión de técnico con datos caducados la siga teniendo
+          if (golden && golden.deletedEstaciones && golden.deletedEstaciones.length > 0) {
+            const delSet = new Set(golden.deletedEstaciones);
+            merged = merged.filter(s => !delSet.has(s));
+          }
+          merged = merged.sort();
+          await sv(SK.estaciones, merged);
+        } catch(e) { await sv(SK.estaciones, estaciones); }
+      })();
+    }
   }, [estaciones, loading]);
   useEffect(() => {
-    if (!loading) sv(SK.ofertas, ofertas);
+    if (!loading) {
+      (async () => {
+        try {
+          const fresh = await ld(SK.ofertas, null);
+          if (fresh && Array.isArray(fresh) && fresh.length > 0) {
+            const myIds = new Set(ofertas.map(o => o.id));
+            const merged = [...ofertas, ...fresh.filter(o => !myIds.has(o.id))];
+            await sv(SK.ofertas, merged);
+          } else {
+            await sv(SK.ofertas, ofertas);
+          }
+        } catch(e) { await sv(SK.ofertas, ofertas); }
+      })();
+    }
   }, [ofertas, loading]);
   useEffect(() => {
-    if (!loading) sv(SK.cfgOfertas, cfgOfertas);
+    if (!loading) {
+      (async () => {
+        try {
+          const fresh = await ld(SK.cfgOfertas, null);
+          if (fresh && typeof fresh === "object") {
+            // El contador de ofertas nunca debe retroceder: el más alto gana
+            const merged = {
+              ...fresh,
+              ...cfgOfertas,
+              contadorActual: Math.max(cfgOfertas.contadorActual || 0, fresh.contadorActual || 0)
+            };
+            await sv(SK.cfgOfertas, merged);
+          } else {
+            await sv(SK.cfgOfertas, cfgOfertas);
+          }
+        } catch(e) { await sv(SK.cfgOfertas, cfgOfertas); }
+      })();
+    }
   }, [cfgOfertas, loading]);
   useEffect(()=>{
     if(!loading){
@@ -3525,7 +3652,23 @@ function App() {
     }
   },[hsseSups,loading]);
   useEffect(()=>{
-    if(!loading) sv(SK.hsseCfg, Object.assign({},hsseCfg,{infCounter:hsseInfCounter}));
+    if(!loading){
+      (async()=>{
+        try{
+          const fresh=await ld(SK.hsseCfg,null);
+          const localData=Object.assign({},hsseCfg,{infCounter:hsseInfCounter});
+          if(fresh&&typeof fresh==="object"){
+            // El contador de informes HSSE nunca debe retroceder: el más alto gana
+            const merged=Object.assign({},fresh,localData,{
+              infCounter:Math.max(localData.infCounter||0,fresh.infCounter||0)
+            });
+            await sv(SK.hsseCfg,merged);
+          }else{
+            await sv(SK.hsseCfg,localData);
+          }
+        }catch(e){await sv(SK.hsseCfg,Object.assign({},hsseCfg,{infCounter:hsseInfCounter}));}
+      })();
+    }
   },[hsseCfg,hsseInfCounter,loading]);
   // hsseHist: clave separada — merge para no perder informes de otras sesiones
   useEffect(()=>{
@@ -6892,7 +7035,16 @@ var factVencidas = facturas.filter(function(f){return f.fechaVto&&f.fechaVto<tod
   }, estaciones.map(e => /*#__PURE__*/React.createElement(Chip, {
     key: e,
     label: e,
-    onDel: () => setEstaciones(x => x.filter(v => v !== e))
+    onDel: () => {
+      setEstaciones(x => x.filter(v => v !== e));
+      (async () => {
+        try {
+          const prev = await ld("na-v21-golden-state", {});
+          const de = [...new Set([...(prev.deletedEstaciones || []), e])];
+          await sv("na-v21-golden-state", { ...prev, deletedEstaciones: de, updatedAt: new Date().toISOString() });
+        } catch(err) { console.warn('[NorAcua] golden state estacion delete failed', err); }
+      })();
+    }
   }))), estaciones.length === 0 && /*#__PURE__*/React.createElement("p", {
     style: {
       color: C.muted,
